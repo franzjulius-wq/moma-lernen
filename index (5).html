@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1016" />
+<meta name="description" content="3D-Lernmodell zum Motormanagement im Pkw: Viertakt und Zweitakt, Reihen-, V- und W-Motoren von 1 bis 16 Zylindern, Ventilsteuerzeiten in Grad Kurbelwinkel." />
+<title>Motor-Management Lernstudio</title>
+<style>
+  :root{
+    --bg:#0b1016; --bg2:#121a24; --card:#18222e; --line:#26333f;
+    --txt:#e8eef5; --dim:#9fb0c0; --accent:#39a9ff; --accent2:#ffb03a;
+    --ok:#3ecf8e; --radius:14px; --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--txt);overflow:hidden;
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,sans-serif}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+  header{display:flex;align-items:center;gap:8px;padding:8px 10px;
+    background:linear-gradient(180deg,#152030,#0f1720);
+    border-bottom:1px solid var(--line);z-index:20;flex:0 0 auto}
+  header h1{font-size:15px;margin:0;font-weight:650;white-space:nowrap}
+  .badge{font-size:11px;color:var(--dim);border:1px solid var(--line);
+    padding:2px 7px;border-radius:99px;white-space:nowrap}
+  header .grow{flex:1}
+  .iconbtn{background:#1d2937;border:1px solid var(--line);color:var(--txt);
+    border-radius:10px;width:36px;height:36px;font-size:17px;cursor:pointer;
+    display:grid;place-items:center;flex:0 0 auto}
+  .iconbtn:active{background:#25384c}
+
+  #stage{position:relative;flex:1 1 auto;min-height:0;
+    background:radial-gradient(ellipse at 50% 18%,#16202c,#080c11 72%)}
+  #stage canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  #hud{position:absolute;left:8px;top:8px;z-index:5;max-width:min(64vw,330px);pointer-events:none}
+  .chip{background:rgba(18,26,36,.84);border:1px solid var(--line);border-radius:10px;
+    padding:6px 9px;font-size:12px;margin-bottom:6px;backdrop-filter:blur(6px)}
+  .chip b{color:var(--accent)}
+  #cyleChip{border-left:4px solid var(--accent)}
+  #winkelChip span{color:var(--accent2);font-variant-numeric:tabular-nums}
+  #valveChip{display:none}
+  #valveChip.on{display:block}
+  .vrow{display:flex;align-items:center;gap:6px;margin-top:3px}
+  .vbar{flex:1;height:6px;border-radius:3px;background:#22303e;overflow:hidden}
+  .vbar i{display:block;height:100%;width:0}
+  .vin i{background:#49b7ff} .vex i{background:#ff8a4d}
+
+  #pickerWrap{position:absolute;right:8px;top:8px;z-index:6;
+    background:rgba(18,26,36,.92);border:1px solid var(--line);border-radius:12px;
+    padding:8px;backdrop-filter:blur(8px);max-height:calc(100% - 24px);overflow:auto;width:172px}
+  #pickerWrap h4{margin:0 0 6px;font-size:10px;text-transform:uppercase;color:var(--dim);letter-spacing:.6px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .gridlay{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:7px}
+  .opt{background:#1d2937;border:1px solid var(--line);color:var(--txt);
+    border-radius:9px;padding:8px 0;font-size:13px;font-weight:600;cursor:pointer;text-align:center}
+  .opt.on{background:var(--accent);border-color:var(--accent);color:#04121c}
+
+  #controls{flex:0 0 auto;background:var(--bg2);border-top:1px solid var(--line);
+    padding:6px 8px calc(6px + var(--safe-b));z-index:20}
+  .wval{font-size:12px;color:var(--accent2);font-variant-numeric:tabular-nums;min-width:62px;text-align:right;flex:0 0 auto}
+  .playbtn{width:40px;height:40px;font-size:16px}
+  #pickerWrap{top:auto;bottom:auto;max-height:calc(100% - 130px)}
+  .qrow{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .qrow .qlabel{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;min-width:66px}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row + .row{margin-top:6px}
+  #controls{max-height:none;overflow:visible}
+  .row input[type=range]{min-width:90px}
+  .playbtn{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+    background:#22344a;color:#fff;font-size:17px;cursor:pointer;flex:0 0 auto}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;
+    background:transparent;margin:0;flex:1 1 auto}
+  input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#2b3d50}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;
+    border-radius:50%;background:var(--accent);margin-top:-7px;border:2px solid #0b1016}
+  input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#2b3d50}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border:2px solid #0b1016;
+    background:var(--accent);border-radius:50%}
+  .seg{display:flex;gap:4px;flex:0 0 auto;flex-wrap:nowrap;overflow:auto}
+  .seg button{background:#1d2937;border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:6px 9px;font-size:11px;cursor:pointer;white-space:nowrap}
+  .seg button.on{background:var(--accent);color:#04121c;border-color:var(--accent)}
+  .lbl{font-size:11px;color:var(--dim);flex:0 0 auto;min-width:50px}
+
+  #sheet{position:absolute;left:0;right:0;bottom:0;z-index:30;background:var(--card);
+    display:none;visibility:hidden;border-top:1px solid var(--line);
+    border-radius:18px 18px 0 0;max-height:78%;overflow:auto;
+    padding:14px 16px calc(24px + var(--safe-b));box-shadow:0 -12px 40px rgba(0,0,0,.55)}
+  #sheet.open{transform:translateY(0)}
+  #sheet h2{margin:0 0 4px;font-size:17px}
+  #sheet h3{margin:16px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim)}
+  #sheet p{margin:0 0 9px;color:#cfdae5;font-size:14px}
+  #sheet .close{position:absolute;right:12px;top:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 10px}
+  th,td{border-bottom:1px solid var(--line);text-align:left;padding:6px 4px;vertical-align:top}
+  th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase}
+  .kv{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);
+    padding:7px 0;font-size:14px}
+  .kv>span:first-child{color:var(--dim)}
+  .kv>span:last-child{color:var(--accent);font-weight:600;text-align:right}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+  .note{background:#1b2836;border-left:3px solid var(--accent2);padding:9px 11px;
+    border-radius:8px;font-size:13px;color:#d8e3ee;margin:8px 0}
+  .cylgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px;margin-top:8px}
+  .cylbtn{background:#1d2937;border:1px solid var(--line);color:var(--txt);
+    border-radius:9px;padding:8px 2px;font-size:11px;cursor:pointer;overflow:hidden;text-overflow:ellipsis}
+  #backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:25;opacity:0;
+    pointer-events:none;transition:opacity .25s}
+  #backdrop.on{opacity:1;pointer-events:auto}
+  #hit{position:absolute;pointer-events:none;z-index:8;background:rgba(11,16,22,.94);
+    border:1px solid var(--accent);border-radius:9px;padding:4px 8px;font-size:12px;
+    white-space:nowrap;opacity:0;transition:opacity .12s}
+  #err{position:absolute;left:8px;right:8px;bottom:8px;z-index:40;display:none;
+    background:#3a1d1d;border:1px solid #7d3a3a;color:#ffd9d9;border-radius:10px;padding:10px;font-size:12px}
+@media(max-width:600px){header{flex-wrap:wrap}.row{flex-wrap:wrap}.seg{flex-shrink:1}.seg button{padding:6px}.row input{min-width:75px}#pickerWrap{width:125px;max-height:35%}#hud{max-width:calc(100% - 145px)}#app{overflow:hidden}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Motor-Management</h1>
+    <span class="badge" id="cfgBadge">R4 · Viertakt</span>
+    <span class="grow"></span>
+    <button class="iconbtn" id="btnReset" title="Ansicht zurücksetzen">⌖</button>
+    <button class="iconbtn" id="btnInfo" title="Infos">ℹ</button>
+    <button class="iconbtn" id="btnParts" title="Bauteile">⚙</button>
+  </header>
+
+  <div id="stage">
+    <div id="hud">
+      <div class="chip" id="cyleChip">Takt: –</div>
+      <div class="chip" id="winkelChip">Kurbelwinkel: <span>000°</span> · Zylinder 1</div>
+      <div class="chip" id="valveChip">
+        <div class="vrow"><span style="width:74px">Einlass</span><div class="vbar vin"><i id="barIn"></i></div></div>
+        <div class="vrow"><span style="width:74px">Auslass</span><div class="vbar vex"><i id="barEx"></i></div></div>
+      </div>
+    </div>
+
+    <div id="pickerWrap">
+      <h4>Anordnung</h4>
+      <div class="gridlay" id="layBtns"></div>
+      <h4>Zylinder</h4>
+      <div class="grid4" id="cylBtns"></div>
+      <h4 style="margin-top:8px">Takte</h4>
+      <div class="gridlay" id="cycBtns" style="grid-template-columns:1fr 1fr"></div>
+      <h4 style="margin-top:8px">Zylinder beobachten</h4>
+      <div class="grid4" id="focusBtns" style="grid-template-columns:1fr 1fr"></div>
+    </div>
+
+
+    <div id="hit"></div>
+    <div id="backdrop"></div>
+    <div id="err"></div>
+
+    <div id="sheet">
+      <button class="iconbtn close" id="btnClose">✕</button>
+      <div id="sheetBody"></div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="row">
+      <button class="playbtn" id="btnPlay">▶</button>
+      <input type="range" id="angle" min="0" max="720" step="1" value="0" />
+      <span class="wval" id="wval">000°</span>
+      <button class="iconbtn" id="btnMore" title="Mehr Einstellungen">⋯</button>
+    </div>
+  </div>
+</div>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* =====================================================================
+   Datenmodell: Motor-Konfigurationen, Zündfolgen, Kenndaten, Steuerzeiten
+   ===================================================================== */
+
+/* ---------- Zündfolgen (Serien-Standardwerte) ---------- */
+const FIRING = {
+  1:  [1],
+  2:  [1,2],
+  3:  [1,2,3],
+  4:  [1,3,4,2],
+  5:  [1,2,4,5,3],
+  6:  [1,5,3,6,2,4],
+  8:  [1,8,4,3,6,5,7,2],
+  10: [1,6,5,10,2,7,3,8,4,9],
+  12: [1,7,5,11,3,9,6,12,2,8,4,10],
+  16: [1,8,4,3,6,5,7,2,9,16,12,11,14,13,15,10]
+};
+
+const DISPLACEMENT = {
+  1:'0,1 – 1,3 l', 2:'0,4 – 1,2 l', 3:'0,7 – 1,2 l', 4:'1,0 – 2,5 l',
+  5:'2,0 – 2,5 l', 6:'1,6 – 4,0 l', 8:'3,5 – 6,5 l', 10:'4,5 – 8,4 l',
+  12:'5,0 – 8,0 l', 16:'6,0 – 8,0 l'
+};
+
+/* ---------- verfügbare Kombinationen ---------- */
+const VALID = {
+  R: [1,2,3,4,5,6,8,10,12,16],
+  V: [2,4,6,8,10,12,16],
+  W: [8,12,16]
+};
+const LAYOUT_NAME = { R:'Reihe (R)', V:'V', W:'W' };
+
+/* ---------- Kurzcharakteristik ---------- */
+const REMARKS = {
+  'R1':'Einzylinder, z. B. Motorrad oder Kleingerät. Eine Zündung je 720°, dadurch unruhiger Lauf – dafür einfach und leicht.',
+  'R2':'Zweizylinder-Reihe, z. B. Kleinwagen oder Motorrad. Zündungen bei 0° und 360° (Gleichläufer) oder 0° und 180° (ungleichläufig).',
+  'R3':'Dreizylinder, z. B. Kleinwagen. Zündungen alle 240°, etwas rauer Lauf als ein Vierzylinder.',
+  'R4':'Vierzylinder-Reihe – der Standardmotor im Pkw. Zündfolge 1-3-4-2, Zündungen alle 180°.',
+  'R5':'Fünfzylinder, z. B. Audi. Zündfolge 1-2-4-5-3, Zündungen alle 144°. Sehr gleichmäßiger Lauf.',
+  'R6':'Sechszylinder-Reihe, z. B. BMW. Zündfolge 1-5-3-6-2-4, Zündungen alle 120°. Die laufruhigste Reihenbauart.',
+  'R8':'Achtzylinder-Reihe, nur historisch (Vorkriegs-Rennwagen). Sehr lange Kurbelwelle, viele Hauptlager.',
+  'R10':'Zehnzylinder-Reihe – praktisch nur im Rennsport, z. B. Formel-1-Motoren.',
+  'R12':'Zwölfzylinder-Reihe, u. a. Lkw-Motoren und Rennsport.',
+  'R16':'Sechzehnzylinder-Reihe, nur Rennsport und Prototypen.',
+  'V2':'Zweizylinder-V, z. B. Motorrad (Ducati, Harley). Bei 90° Bankwinkel gleichmäßige Zündungen alle 360°.',
+  'V4':'Vierzylinder-V, u. a. Motorrad und Kleinwagen. Kurze Bauweise, zwei Zylinderköpfe.',
+  'V6':'Sechszylinder-V. Zündfolge 1-5-3-6-2-4, Zündungen alle 120°. Bankwinkel meist 60°, bei manchen Herstellern 90°.',
+  'V8':'Achtzylinder-V, z. B. US-Motoren und Sportwagen. Zündfolge 1-8-4-3-6-5-7-2, Bankwinkel 90°.',
+  'V10':'Zehnzylinder-V, z. B. Audi und Lamborghini. Zündfolge 1-6-5-10-2-7-3-8-4-9.',
+  'V12':'Zwölfzylinder-V, z. B. BMW, Mercedes-Benz, Lamborghini. Zündungen alle 60°, sehr laufruhig.',
+  'V16':'Sechzehnzylinder-V, z. B. Bugatti und historische Luxuswagen. Zwei Bänke zu je acht Zylindern.',
+  'W8':'W8 (VW Passat W8): zwei V-Blöcke mit nur 15° Winkel – vier Zylinderreihen zu je zwei Zylindern.',
+  'W12':'W12, z. B. VW Phaeton, Bentley, Audi A8. Vier Zylinderreihen, sehr kompakt.',
+  'W16':'W16, z. B. Bugatti Veyron und Chiron. Zwei VR-Blöcke zu je acht Zylindern, 8,0 l Hubraum.'
+};
+
+/* ---------- Kenndaten (typische Serienwerte) ---------- */
+const DATA = {
+  'R1':  { bore:86, stroke:86, cr:10.5, rods:1,  valves:'2 Ventile (1 Einlass, 1 Auslass)' },
+  'R2':  { bore:84, stroke:75, cr:10.5, rods:2,  valves:'2 Ventile je Zylinder' },
+  'R3':  { bore:76, stroke:82, cr:10.5, rods:3,  valves:'2 Ventile je Zylinder' },
+  'R4':  { bore:84, stroke:90, cr:10.5, rods:4,  valves:'4 Ventile (2 Einlass, 2 Auslass)' },
+  'R5':  { bore:82, stroke:86, cr:10.5, rods:5,  valves:'4 Ventile je Zylinder' },
+  'R6':  { bore:84, stroke:90, cr:11.0, rods:6,  valves:'4 Ventile je Zylinder' },
+  'R8':  { bore:80, stroke:95, cr:6.5,  rods:8,  valves:'2 Ventile je Zylinder' },
+  'R10': { bore:84, stroke:92, cr:12.0, rods:10, valves:'4 Ventile je Zylinder' },
+  'R12': { bore:88, stroke:90, cr:10.0, rods:12, valves:'4 Ventile je Zylinder' },
+  'R16': { bore:84, stroke:90, cr:10.0, rods:16, valves:'4 Ventile je Zylinder' },
+  'V2':  { bore:100,stroke:66, cr:10.5, rods:2,  valves:'2 Ventile je Zylinder' },
+  'V4':  { bore:81, stroke:48, cr:12.0, rods:4,  valves:'4 Ventile je Zylinder' },
+  'V6':  { bore:84, stroke:90, cr:10.5, rods:6,  valves:'4 Ventile je Zylinder' },
+  'V8':  { bore:92, stroke:92, cr:10.5, rods:8,  valves:'2 oder 4 Ventile je Zylinder' },
+  'V10': { bore:84, stroke:90, cr:11.0, rods:10, valves:'4 Ventile je Zylinder' },
+  'V12': { bore:89, stroke:80, cr:11.0, rods:12, valves:'4 Ventile je Zylinder' },
+  'V16': { bore:86, stroke:86, cr:9.0,  rods:16, valves:'4 Ventile je Zylinder' },
+  'W8':  { bore:84, stroke:90, cr:11.0, rods:8,  valves:'4 Ventile je Zylinder' },
+  'W12': { bore:84, stroke:90, cr:11.0, rods:12, valves:'4 Ventile je Zylinder' },
+  'W16': { bore:86, stroke:86, cr:9.0,  rods:16, valves:'4 Ventile je Zylinder' }
+};
+
+const CAM_SPEC =
+  'Steuerzeiten werden in Grad Kurbelwinkel angegeben, nicht in Grad Nockenwinkel. ' +
+  'Die Nockenwelle läuft im Viertaktmotor mit halber Kurbelwellendrehzahl, im Zweitaktmotor mit gleicher Drehzahl.';
+
+/* ---------- Konfiguration aufbauen ---------- */
+function range(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
+
+function makeConfig(n, layout){
+  const c = { n, layout, banks:[], angle:0, cycles:4 };
+  const half = n/2;
+
+  if (layout === 'R'){
+    c.banks = [{ id:'R', angle:0, cyl:range(1,n) }];
+    c.note = 'Reihenmotor: alle Zylinder stehen in einer Reihe. Eine Kurbelwelle, ein Zylinderkopf, eine Zylinderbank.';
+    c.angle = 0;
+  } else if (layout === 'V'){
+    c.angle = ([2,8,10].includes(n)) ? 90 : 60;
+    c.banks = [
+      { id:'A', angle:-c.angle/2, cyl:range(1, half) },
+      { id:'B', angle:+c.angle/2, cyl:range(half+1, n) }
+    ];
+    c.note = `V${n}: zwei Zylinderbänke in einem Winkel von ${c.angle}° auf einer gemeinsamen Kurbelwelle. ` +
+             'Je Bank ein eigener Zylinderkopf, deshalb zwei Nockenwellensätze.';
+  } else {
+    /* W-Bauart */
+    if (n === 8){
+      c.angle = 15;
+      const q = n/4;
+      c.banks = [
+        { id:'A', angle:-52.5, cyl:range(1,q) },
+        { id:'B', angle:-37.5,  cyl:range(q+1,2*q) },
+        { id:'C', angle:+37.5,  cyl:range(2*q+1,3*q) },
+        { id:'D', angle:+52.5, cyl:range(3*q+1,4*q) }
+      ];
+      c.note = 'W8: zwei V-Blöcke mit sehr kleinem Winkel (15°), also vier Zylinderreihen zu je zwei Zylindern auf einer Kurbelwelle.';
+    } else {
+      c.angle = 60;
+      const q = n/4;
+      c.banks = [
+        { id:'A', angle:-60, cyl:range(1,q) },
+        { id:'B', angle:-20, cyl:range(q+1,2*q) },
+        { id:'C', angle:+20, cyl:range(2*q+1,3*q) },
+        { id:'D', angle:+60, cyl:range(3*q+1,4*q) }
+      ];
+      c.note = `W${n}: zwei Zylinderblöcke mit je zwei Bänken, Bankwinkel ${c.angle}° – also vier Zylinderreihen auf einer Kurbelwelle.`;
+    }
+  }
+
+  c.firing = FIRING[n].slice();
+  c.firingInterval = 720/n;
+  if (layout === 'V' && n === 2){ c.firingInterval = 360; }
+  c.fireAngle = {};
+  c.firing.forEach((no,i)=>{ c.fireAngle[no] = i*c.firingInterval; });
+  return c;
+}
+
+/* ---------- Steuerzeiten des Modells ----------
+   Beispielmotoren mit 4 Ventilen: Einlass öffnet vor OT, schließt nach UT.
+   Auslass öffnet vor UT, schließt nach OT.
+   Werte sind Beispielwerte eines typischen Saugmotors.               */
+function valveTiming(c){
+  const many = c.n >= 4;
+  const inOpen  = many ? 12 : 10;   /* ° vor OT   */
+  const inClose = many ? 48 : 40;   /* ° nach UT  */
+  const exOpen  = many ? 45 : 40;   /* ° vor UT   */
+  const exClose = many ? 8  : 10;   /* ° nach OT  */
+  const overlap = inOpen + exClose;
+  return {
+    inOpen, inClose, exOpen, exClose, overlap,
+    /* absolute Werte im 720°-Raster (OT-Lagewechsel = 720/0) */
+    inOpenAbs: 720 - inOpen, inCloseAbs: 360 + inClose,
+    exOpenAbs: 495 - (45 - exOpen), exCloseAbs: 720 + exClose,
+    durationIn: inOpen + 180 + inClose,
+    durationEx: exOpen + 180 + exClose
+  };
+}
+
+
+/* =====================================================================
+   Fachtexte für das Lernstudio – bewusst einfach geschrieben,
+   für Kfz-Azubis im 1. bis 3. Ausbildungsjahr.
+   ===================================================================== */
+
+const PARTS = {
+  'Zylinder': {
+    kurz:'Führungsrohr, in dem der Kolben läuft.',
+    lang:'Der Zylinder ist ein innen gehontes Rohr. Der Kolben gleitet darin dicht geführt auf und ab. Er nimmt die Ladung auf, dichtet sie zum Kurbelgehäuse ab und führt die Wärme über die Wand an die Kühlung. Werkstoff: Aluminium mit Laufbuchse aus Grauguss oder beschichtete Alu-Lauffläche (z. B. Nikasil). Mehrere Zylinder in einer Reihe bilden eine Zylinderbank; bei V- und W-Motoren gibt es zwei bzw. vier Bänke.'
+  },
+  'Kolben': {
+    kurz:'Nimmt den Verbrennungsdruck auf.',
+    lang:'Der Kolben besteht aus Kolbenboden, Ringfeld und Kolbenhemd. Die zwei oberen Kompressionsringe dichten gegen Verbrennungsgase ab, der untere Ölabstreifring streift überschüssiges Öl von der Zylinderwand. Der Kolbenbolzen verbindet ihn mit dem Pleuel, gesichert durch Sprengringe. Kolben sind oben leicht konisch und oval gedreht, weil sie im Betrieb stärker warm werden und mehr ausdehnen als der Zylinder.'
+  },
+  'Kurbelwelle': {
+    kurz:'Macht aus der Hubbewegung eine Drehbewegung.',
+    lang:'Die Kurbelwelle liegt unten im Kurbelgehäuse und läuft in Gleitlagern (Hauptlager). Über die Hubzapfen und Pleuel nimmt sie die Kolbenkraft auf. Der Winkelversatz der Kröpfungen (Hubzapfenversatz) bestimmt, in welcher Reihenfolge die Zylinder arbeiten. Vorn treibt sie den Riemen- oder Kettentrieb, hinten sitzt das Schwungrad mit Anlasserzahnkranz und die Kupplung.'
+  },
+  'Pleuel': {
+    kurz:'Verbindet Kolben und Kurbelwelle.',
+    lang:'Die Pleuelstange überträgt die Kraft vom Kolbenbolzen auf den Hubzapfen. Unten sitzt das große Auge mit Pleuellagerschalen, oben das kleine Auge mit Buchse. Das Verhältnis Pleuellänge zu Kurbelradius λ liegt typisch bei 0,25 bis 0,30 – bei zu kleinem λ werden die Seitenkräfte auf die Zylinderwand groß.'
+  },
+  'Kolbenbolzen': {
+    kurz:'Gelenkbolzen zwischen Kolben und Pleuel.',
+    lang:'Der Kolbenbolzen ist gehärtet und geschliffen. Er sitzt im Kolben und im kleinen Pleuelauge. Je nach Ausführung ist er im Kolben fest (Presssitz) oder im Pleuel fest (schwimmend gelagert) – bei schwimmender Ausführung sind Sprengringe gegen Herauswandern montiert.'
+  },
+  'Zylinderkopf': {
+    kurz:'Deckel des Zylinders mit Ventilen, Kerze und Düse.',
+    lang:'Der Zylinderkopf schließt den Brennraum oben ab. Er enthält Ventilführungen, Ventilsitze, Kanäle, Nockenwellenlager, Zündkerze und – bei Direkteinspritzung – die Einspritzventile. Bei V- und W-Motoren gibt es zwei bzw. vier Zylinderköpfe. Abgedichtet wird mit je einer Zylinderkopfdichtung pro Bank; Anzug erfolgt nach Drehmoment und Drehwinkel in vorgeschriebener Reihenfolge.'
+  },
+  'Brennraum': {
+    kurz:'Raum über dem Kolben, in dem die Ladung verbrennt.',
+    lang:'Der Brennraum entsteht aus Kolbenboden, Zylinderwand und Zylinderkopf. Seine Form entscheidet über Gemischbildung, Verbrennung und Wirkungsgrad. Beim wandgeführten Verfahren liegt die Einspritzdüse seitlich am Brennraum und spritzt schräg an die Wand, die Ladung wird von der Kolbenmulde geführt. Beim strahlgeführten Verfahren sitzt die Düse mittig neben der Zündkerze und spritzt direkt in eine Brennraummulde im Kolben – so ist auch im Schichtladebetrieb (λ = 1 nur an der Kerze) ein zündfähiges Gemisch an der Kerze vorhanden.'
+  },
+  'Zündkerze': {
+    kurz:'Erzeugt den Zündfunken im Brennraum.',
+    lang:'Die Zündkerze wird in den Zylinderkopf geschraubt (typisch M12x1,25 oder M14x1,25). Zwischen Mittel- und Masseelektrode entsteht der Funken. Der Wärmewert sagt, wie viel Wärme die Kerze abführt: eine heiße Kerze (kleiner Wärmewert) brennt sich frei, eine kalte Kerze (großer Wärmewert) verhindert Glühzündung bei hoher Last. Elektrodenabstand je nach Motor 0,6 – 1,3 mm. Anzugsdrehmoment immer nach Herstellerangabe, sonst reißt das Gewinde oder die Dichtung wird undicht.'
+  },
+  'Einspritzventil': {
+    kurz:'Dosiert den Kraftstoff mit berechneter Öffnungszeit.',
+    lang:'Das Einspritzventil ist ein elektromagnetisch betätigtes Ventil. Das Steuergerät öffnet es für eine berechnete Zeit (Einspritzdauer in Millisekunden). Bei der Saugrohreinspritzung sitzt es im Saugrohr vor dem Einlassventil und arbeitet mit wenigen bar. Bei der Benzindirekteinspritzung sitzt es im Brennraum und arbeitet mit 100 bis über 300 bar, damit der Kraftstoff fein zerstäubt wird. Einspritzmenge = Öffnungszeit × Durchfluss; die Durchflussmenge ist in cm³/min oder g/s angegeben.'
+  },
+  'Einlassventil': {
+    kurz:'Öffnet die Zufuhr der Frischladung.',
+    lang:'Das Einlassventil ist meist größer als das Auslassventil, weil die einströmende Luft mehr Querschnitt braucht. Es öffnet bereits vor dem oberen Totpunkt, damit die Ladung schon in Bewegung ist, wenn der Kolben abwärts läuft. Bei Mehrventilmotoren gibt es zwei Einlassventile je Zylinder.'
+  },
+  'Auslassventil': {
+    kurz:'Gibt die Abgase frei.',
+    lang:'Das Auslassventil wird thermisch viel höher belastet als das Einlassventil. Es öffnet vor dem unteren Totpunkt und schließt nach dem oberen Totpunkt. Wegen der hohen Temperatur werden Auslassventile aus hitzebeständigem Stahl gefertigt, bei stark belasteten Motoren mit Natriumfüllung im Schaft – das Natrium schmilzt und transportiert Wärme vom Teller in den Schaft.'
+  },
+  'Nockenwelle': {
+    kurz:'Steuert die Ventile über Nocken.',
+    lang:'Die Nockenwelle läuft im Zylinderkopf (OHC, DOHC) oder im Block (OHV). Ihre Nockenform bestimmt Öffnungsbeginn, Öffnungsdauer und Maximalhub. Im Viertaktmotor läuft sie mit halber Kurbelwellendrehzahl, im Zweitaktmotor mit gleicher Drehzahl. Eine Nockenwellenverstellung kann die Steuerzeiten last- und drehzahlabhängig verschieben.'
+  },
+  'Ventilfeder': {
+    kurz:'Drückt das Ventil wieder zu.',
+    lang:'Die Ventilfeder schließt das Ventil auch bei hoher Drehzahl zuverlässig. Folgt die Feder der Nockenform nicht mehr, „flattert“ das Ventil – es kann aufsetzen und der Motor verliert Leistung. Deshalb gibt es Mehrfachfedern, bei Rennmotoren auch desmodromische Steuerungen. Der Ventilschaft wird in der Ventilführung geführt, der Ventilschaftdichtring hält Öl aus dem Brennraum.'
+  },
+  'Kipphebel': {
+    kurz:'Überträgt den Nockenhub auf das Ventil.',
+    lang:'Kipphebel oder Schlepphebel sitzen auf einer Welle oder einem Kugelbolzen und übertragen die Nockenbewegung auf den Ventilschaft. Über Einstellschraube, Tassenstößel oder Hydrostößel wird das Ventilspiel eingestellt. Ein falsches Ventilspiel kostet Leistung: zu eng, und das Ventil schließt nicht ganz (Kompressionsverlust, Ventilbrand); zu weit, und der Hub wird kleiner und klappert.'
+  },
+  'Saugrohr': {
+    kurz:'Führt die Luft zu den Einlasskanälen.',
+    lang:'Das Saugrohr verteilt die Luft gleichmäßig auf die Zylinder. Seine Länge und sein Querschnitt beeinflussen die Füllung: lange, schmale Wege bringen Drehmoment bei niedriger Drehzahl, kurze Wege Leistung bei hoher Drehzahl. Deshalb gibt es Schaltsaugrohre, die die Länge im Betrieb umschalten. Einspritzung oder Vergaser sitzen davor.'
+  },
+  'Drosselklappe': {
+    kurz:'Regelt die Luftmenge, die der Motor bekommt.',
+    lang:'Die Drosselklappe sitzt im Drosselklappenstutzen. Bei modernen Motoren wird sie elektrisch über einen Stellmotor bewegt (E-Gas); das Gaspedal ist dann nur noch ein Geber. Damit kann das Steuergerät selbst eingreifen: Leerlaufregelung, Drehmomentbegrenzung, ESP und Tempomat. Über einen kleinen Bypass wird im Leerlauf die benötigte Luftmenge geführt.'
+  },
+  'Kurbelgehäuse': {
+    kurz:'Trägt Kurbelwelle, Lager und Ölkreislauf.',
+    lang:'Das Kurbelgehäuse nimmt die Kurbelwelle mit den Hauptlagern auf, führt den Ölkreislauf und bildet unten die Ölwanne. Die Kurbelgehäuseentlüftung führt Blow-by-Gase zurück in den Ansaugtrakt, damit der Druck im Gehäuse nicht steigt und keine Gase in die Umwelt gelangen.'
+  },
+  'Zylinderkopfdichtung': {
+    kurz:'Dichtet Kopf und Block gegeneinander ab.',
+    lang:'Die Zylinderkopfdichtung dichtet den Brennraum gegen Wasser- und Ölkanäle ab. Bei modernen Motoren ist sie oft eine Mehrlagen-Stahldichtung. Anzug erfolgt in mehreren Stufen nach Drehmoment und anschließendem Drehwinkel; die Reihenfolge ist vorgeschrieben, damit sich der Kopf gleichmäßig setzt.'
+  },
+  'Ölwanne': {
+    kurz:'Vorratsbehälter für das Motoröl.',
+    lang:'Die Ölwanne sitzt unter dem Kurbelgehäuse und sammelt das Öl. Von hier saugt die Ölpumpe über ein Sieb an. Bei schmutzigem Öl oder verstopftem Sieb fällt der Öldruck ab, und die Öldruckwarnleuchte kommt – dann sofort abstellen und die Ursache suchen.'
+  },
+  'Ölpumpe': {
+    kurz:'Fördert das Schmieröl zu den Lagerstellen.',
+    lang:'Die Ölpumpe wird von der Kurbelwelle oder einer Zwischenwelle angetrieben und fördert das Öl über den Ölfilter zu Haupt- und Pleuellagern, zur Nockenwelle und zum Ventiltrieb. Ein Druckregelventil begrenzt den Druck, ein Überdruckventil schützt den Kreislauf. Neben dem Schmierfilm kühlt das Öl auch die Lagerstellen.'
+  },
+  'Kühler': {
+    kurz:'Führt die Wärme an die Umgebungsluft ab.',
+    lang:'Der Kühler tauscht die Motorwärme gegen die Umgebungsluft. Das Thermostat gibt den Weg zum Kühler erst ab etwa 88 – 95 °C frei, darunter läuft das Kühlmittel im kleinen Kreislauf. Bei heißem Motor und abgestelltem Fahrzeug folgt das Kühlmittel dem Wärmestrom weiter – deshalb nicht sofort den Verschlussdeckel öffnen, sonst tritt heißes Kühlmittel aus und es besteht Verbrühungsgefahr.'
+  },
+  'Wasserpumpe': {
+    kurz:'Fördert das Kühlmittel durch den Motor.',
+    lang:'Die Wasserpumpe wird meist über den Riemen oder die Steuerkette angetrieben. Sie drückt Kühlmittel durch die Kanäle in Block und Kopf. Der Kühlmittelstand und ein dichtes System sind entscheidend: Luft im System führt zu örtlicher Überhitzung und zu Zylinderkopfdichtungsschäden.'
+  },
+  'Schwungrad': {
+    kurz:'Speichert Drehenergie und glättet den Lauf.',
+    lang:'Das Schwungrad sitzt am hinteren Kurbelwellenende. Es speichert Rotationsenergie und überbrückt die Takte, in denen kein Zylinder Arbeit abgibt. Es trägt den Anlasserzahnkranz und die Anlagefläche für die Kupplung. Bei Zweimassenschwungrädern ist zusätzlich ein Feder-Dämpfer-System eingebaut, das Drehschwingungen vom Getriebe fernhält.'
+  },
+  'Zündspule': {
+    kurz:'Erzeugt die Hochspannung für den Funken.',
+    lang:'Die Zündspule ist ein Transformator mit Primär- und Sekundärwicklung. Das Steuergerät unterbricht den Primärstrom; durch die Selbstinduktion entsteht in der Sekundärwicklung ein Spannungsstoß von 15.000 bis 40.000 Volt. Es gibt Einzelzündspulen (COP) direkt auf der Kerze, Doppelfunkenspulen für zwei Zylinder und Verteilerzündanlagen bei älteren Motoren.'
+  },
+  'Steuergerät': {
+    kurz:'Rechnet aus den Sensordaten die Stellgrößen.',
+    lang:'Das Motorsteuergerät verarbeitet Drehzahl, Luftmasse, Drosselklappen- und Fahrpedalstellung, Kühlmittel- und Ansauglufttemperatur, Lambda-Signal, Klopfen, Saugrohrdruck und vieles mehr. Daraus berechnet es Einspritzmenge, Einspritzzeitpunkt, Zündwinkel, Ladedruck, AGR-Rate und Leerlaufdrehzahl. Grundlage sind Kennfelder, die im Speicher abgelegt sind. Fehler werden im Fehlerspeicher abgelegt, auslesbar über die Diagnosebuchse (OBD).'
+  },
+  'Lambdasonde': {
+    kurz:'Misst den Restsauerstoff im Abgas.',
+    lang:'Die Lambdasonde erzeugt ab etwa 300 °C eine Spannung, die vom Restsauerstoff abhängt: etwa 0,1 – 0,3 V bei magerem Gemisch, 0,6 – 0,9 V bei fettem Gemisch, der Arbeitspunkt liegt bei rund 0,45 V. Sie liefert das Signal für die Gemischregelung, damit der Drei-Wege-Katalysator im Fenster λ = 1 arbeiten kann. Die Sonde vor dem Kat regelt, die Sonde nach dem Kat überwacht. Sie ist ein Verschleißteil und darf nicht mit Fetten oder Reinigern in Berührung kommen.'
+  },
+  'Klopfsensor': {
+    kurz:'Hört das Klopfen und meldet es dem Steuergerät.',
+    lang:'Der Klopfsensor ist ein Körperschallsensor am Zylinderblock. Er erkennt die typischen hochfrequenten Schwingungen von klopfender Verbrennung. Das Steuergerät zieht daraufhin den Zündwinkel des betroffenen Zylinders zurück, bis das Klopfen verschwindet, und gibt ihn danach langsam wieder frei. Anzugsdrehmoment und Anlagefläche sind genau vorgeschrieben – ein zu lockerer Sensor erkennt nicht richtig.'
+  },
+  'Katalysator': {
+    kurz:'Wandelt Schadstoffe in ungiftige Gase um.',
+    lang:'Der geregelte Drei-Wege-Katalysator wandelt Kohlenmonoxid, unverbrannte Kohlenwasserstoffe und Stickoxide um. Er arbeitet nur im engen Fenster um λ = 1, deshalb pendelt die Regelung ständig leicht um diesen Wert. Der Kat braucht Betriebstemperatur (ab etwa 250 – 300 °C), erreicht sie aber nicht bei Kurzstreckenbetrieb. Verbleites Benzin und unverbranntes Gemisch zerstören ihn.'
+  },
+  'Nockenwellenversteller': {
+    kurz:'Verschiebt die Steuerzeiten im Betrieb.',
+    lang:'Der Versteller dreht die Nockenwelle hydraulisch gegenüber dem Antrieb. So kann das Steuergerät die Ventilüberschneidung verändern: viel Überschneidung lässt Abgas in den Ansaugtrakt zurückströmen (innere Abgasrückführung, senkt Stickoxide und verbessert die Füllung), wenig Überschneidung sorgt für stabilen Leerlauf. Viele Motoren haben Versteller auf Einlass- und Auslassseite.'
+  },
+  'Zahnriemen': {
+    kurz:'Formschlüssiger Antrieb der Nockenwelle.',
+    lang:'Der Zahnriemen überträgt die Kurbelwellendrehung formschlüssig auf die Nockenwellen. Er läuft leise und braucht keine Schmierung, muss aber nach Herstellervorgabe gewechselt werden – ein gerissener Zahnriemen führt bei vielen Motoren zum Ventilschaden, weil der Kolben die offenen Ventile trifft. Die Spannung und die Steuerzeitenmarkierungen müssen exakt stimmen.'
+  },
+  'Steuerkette': {
+    kurz:'Kraftschlüssiger, formschlüssiger Nockenwellenantrieb.',
+    lang:'Die Steuerkette treibt die Nockenwellen an. Sie ist langlebiger als der Zahnriemen, aber nicht wartungsfrei: Kette, Spanner, Führungsschienen und Kettenräder verschleißen, die Kette längt sich und beginnt zu rasseln. Sie ist im Betrieb sichtbar mit der halben Drehzahl der Kurbelwelle unterwegs.'
+  },
+
+  'Zylinderlaufbuchse': {
+    kurz:'Eingepresste oder eingegossene Laufbahn im Zylinder.',
+    lang:'Die Laufbuchse bildet die eigentliche Gleitfläche des Kolbens. Sie wird aus Grauguss gefertigt oder als beschichtete Aluminiumfläche mit Siliziumkarbid ausgebildet (Nikasil). Bei nass eingebauten Buchsen dichtet der Dichtring unten gegen das Kühlmittel ab.',
+    bauform:'Bauformen: trocken eingepresst, nass mit Kühlmitteldurchströmung, beschichtete Alu-Lauffläche.',
+    zahlen:'Verschleißgrenze meist bei 0,01 mm Abweichung; Honwinkel 40 – 60°.',
+    fehler:'Riefen und Fressspuren bei Ölmangel oder Kolbenkippen, Ovalität bei Überhitzung.'
+  },
+  'Gegengewicht': {
+    kurz:'Massenausgleich an der Kurbelwelle.',
+    lang:'Gegengewichte sitzen gegenüber den Hubzapfen und gleichen die rotierenden Massen aus. Sie verringern die Lagerbelastung und die freien Massenkräfte, die ansonsten den Motor stark schütteln. Bei aufwendigen Motoren gibt es zusätzlich Ausgleichswellen, die die Kräfte zweiter Ordnung tilgen.',
+    bauform:'Bauformen: angeschmiedet oder gegossen und mit der Welle verschraubt.',
+    zahlen:'Ausgleich der rotierenden Massen etwa 60 – 100 %.',
+    fehler:'Risse nach Lagerfresser oder falscher Wuchtung.'
+  },
+  'Hauptlager': {
+    kurz:'Gleitlager der Kurbelwelle im Gehäuse.',
+    lang:'Hauptlager sind Gleitlagerschalen aus Stahl mit Laufschicht aus Bleibronze oder Aluminium-Zinn. Sie tragen die Kurbelwelle und nehmen die Zündkräfte auf. Getragen wird die Welle im Betrieb allein vom Öldruck und Schmierfilm der Ölpumpe – beim Start liegt sie kurz metallisch auf.',
+    bauform:'Bauformen: dünnwandige Lagerschalen, oft mit Übermaß erhältlich.',
+    zahlen:'Lagerspiel meist 0,02 – 0,06 mm.',
+    fehler:'Klopfen bei zu großem Spiel, Öldruckabfall, Bronzeneinschlüsse bei Ölmangel.'
+  },
+  'Nockenwellenlager': {
+    kurz:'Gleitlager der Nockenwelle im Zylinderkopf.',
+    lang:'Die Nockenwelle liegt in Gleitlagern direkt im Zylinderkopf oder in eigenen Lagern. Das Lagerspiel des ersten Lagers ist oft kleiner, damit die Welle vorgespannt lief. Bei zu großem Spiel schlägt die Nockenwelle, das Nockenspiel verschiebt sich und die Steuerzeiten werden ungenau.',
+    bauform:'Bauformen: direkt im Kopf gearbeitet oder als eigene Lagerböcke.',
+    zahlen:'Lagerspiel 0,03 – 0,07 mm.',
+    fehler:'Ölverlust über die Lager, Nageln, ungenaue Steuerzeiten.'
+  },
+  'Nockenwellenmarkierung': {
+    kurz:'Markierung für Steuerzeiten beim Einbau.',
+    lang:'Die Markierung zeigt die Stellung der Nockenwelle zum Kurbelwellen-OT. Bei der Montage müssen die Markierungen von Kurbelwelle und Nockenwelle aufeinander zeigen, sonst stehen die Steuerzeiten um Zähne versetzt und der Motor läuft schlecht oder stößt die Ventile an.',
+    fehler:'Ein bis zwei Zähne Versatz bei der Montage – typischer Fehler nach einem Zahnriemenwechsel.'
+  },
+  'Ausgleichswelle': {
+    kurz:'Gleicht Massenkräfte und Schwingungen aus.',
+    lang:'Ausgleichswellen laufen mit ein- oder zweifacher Kurbelwellendrehzahl und erzeugen gegenläufige Massenkräfte. Sie werden bei Reihenmotoren mit ungerader Zylinderzahl und bei großen Vierzylindern eingesetzt, um die freien Massenkräfte zweiter Ordnung zu tilgen. Sie verbessern Laufruhe und Geräusch deutlich.'
+  }
+};
+
+const CYCLES = [
+  { key:'ansaugen', name:'1. Ansaugen', farbe:'#4fc3f7',
+    kurz:'Kolben läuft von OT nach UT.',
+    hub:'Kolben von OT nach UT (180° Kurbelwinkel).',
+    ventile:'Einlassventil öffnet kurz vor OT, Auslassventil ist geschlossen.',
+    wirkung:'Im Zylinder entsteht Unterdruck, frische Ladung strömt ein. Wie viel einströmt (Füllung), hängt von Querschnitt, Steuerzeit und Drehzahl ab.' },
+  { key:'verdichten', name:'2. Verdichten', farbe:'#ffd54f',
+    kurz:'Kolben läuft von UT nach OT.',
+    hub:'Kolben von UT nach OT (180°).',
+    ventile:'Beide Ventile geschlossen – der Brennraum ist dicht.',
+    wirkung:'Die Ladung wird auf das Verdichtungsverhältnis ε zusammengedrückt (typisch 1:10). Druck und Temperatur steigen stark an; kurz vor dem OT wird gezündet.' },
+  { key:'arbeiten', name:'3. Arbeiten', farbe:'#ff7043',
+    kurz:'Verbrennung treibt den Kolben nach unten.',
+    hub:'Zündung kurz vor OT, Kolben läuft nach UT (180°).',
+    ventile:'Beide Ventile geschlossen.',
+    wirkung:'Die Flammenfront breitet sich mit etwa 20 – 30 m/s aus. Der Druck treibt den Kolben an – der einzige Takt, der Arbeit abgibt.' },
+  { key:'ausstossen', name:'4. Ausstoßen', farbe:'#a1887f',
+    kurz:'Abgase werden herausgeschoben.',
+    hub:'Kolben von UT nach OT (180°).',
+    ventile:'Auslassventil öffnet vor UT, Einlassventil öffnet vor OT – Ventilüberschneidung.',
+    wirkung:'Die Abgase werden ausgeschoben. In der Überschneidung zieht der ausströmende Gasstrom frische Ladung nach und spült den Brennraum.' }
+];
+
+const BASICS = {
+  twoStroke:
+    'Im Zweitaktmotor fallen Ansaugen und Verdichten zusammen, ebenso Arbeiten und Ausstoßen. Ein Zyklus dauert nur 360°, also eine Kurbelwellenumdrehung – deshalb gibt es bei gleicher Drehzahl doppelt so viele Arbeitstakte. ' +
+    'Statt Ventilen arbeitet er mit Schlitzen im Zylinder, die vom Kolbenhemd gesteuert werden, und mit Überströmkanälen. Die Spülung findet um den unteren Totpunkt statt: zuerst öffnet der Auslassschlitz, dann strömt über die Überströmkanäle Frischgas nach und schiebt die Abgase hinaus. ' +
+    'Probleme: Ein Teil des Frischgases geht unverbrannt in den Auspuff (Spülverlust), und die Spülung ist nie so sauber wie beim Viertakter. Deshalb braucht der Zweitakter entweder Öl im Kraftstoff (Gemisch) oder eine Getrenntschmierung mit Ölpumpe. ' +
+    'Vorteile: geringes Gewicht, einfacher Aufbau, hohe Leistung bei kleiner Bauweise – deshalb bei Mopeds, Motorsägen und Außenbordern verbreitet.',
+  einsatz:
+    'Zweitaktmotoren haben im Pkw heute praktisch keine Bedeutung mehr, weil Abgas- und Verbrauchsvorschriften kaum erreichbar sind. Wichtig ist der Zweitakter aber, um die Grundbegriffe Hub, Totpunkt, Steuerzeiten und Gemischbildung zu verstehen.',
+  eingineTypes:
+    'Reihenmotor (R): Alle Zylinder stehen in einer Reihe, eine Kurbelwelle, ein Zylinderkopf. Einfach im Aufbau, gut zugänglich, aber lang. ' +
+    'V-Motor (V): Zwei Bänke in einem Winkel (meist 60° oder 90°) auf einer Kurbelwelle. Kurzer Bau, zwei Zylinderköpfe, für gleiche Zündabstände werden die Hubzapfen entsprechend versetzt. ' +
+    'W-Motor (W): Vier Zylinderreihen auf einer Kurbelwelle – entweder zwei V-Blöcke mit kleinem Winkel oder zwei Blöcke mit je zwei eng stehenden Bänken. Sehr kompakt bei viel Hubraum, aber aufwendig in Bau und Wartung.'
+};
+
+const VALVE_TEXT =
+  'Die Steuerzeiten beschreiben, wann ein Ventil öffnet und schließt – angegeben in Grad Kurbelwinkel. ' +
+  'Das Einlassventil öffnet zum Beispiel 12° vor OT und schließt 48° nach UT. Das Auslassventil öffnet 45° vor UT und schließt 8° nach OT. ' +
+  'In der Zeit, in der beide Ventile offen sind (Ventilüberschneidung), strömt Abgas zurück in das Saugrohr und Frischgas in den Zylinder – das senkt die Verbrennungstemperatur und damit die Stickoxide. ' +
+  'Zu viel Überschneidung führt aber zu instabilem Leerlauf und zu schlechter Abgasqualität. Deshalb verstellen Nockenwellenversteller die Steuerzeiten im Betrieb.';
+
+const IGNITION_TEXT =
+  'Die Zündung löst nicht genau im OT aus, sondern etwas früher. Ursache: Das Gemisch braucht Zeit zum Anzünden und Brennen. ' +
+  'Der Zündwinkel wird in Grad vor OT angegeben und liegt im Leerlauf bei etwa 5 – 15°, unter Volllast bei 20 – 40°. ' +
+  'Ein zu früher Zündwinkel erhöht Druck und Temperatur und führt zu klopfender Verbrennung; die Klopfregelung zieht den Zündwinkel dann zurück. ' +
+  'Viel Frühzündung bringt Wirkungsgrad, kostet aber Bauteilschutz. Moderne Steuergeräte entnehmen den Zündwinkel aus einem Kennfeld über Drehzahl und Last und korrigieren ihn über die Klopfregelung.';
+
+const SENSORS = [
+  ['Drehzahlsensor','Induktivgeber an der Kurbelwelle oder am Schwungrad – liefert Drehzahl und Bezugsmarke für OT.'],
+  ['Nockenwellensensor','Hallgeber – erkennt, welcher Zylinder sich im Verdichtungstakt befindet (Phasenerkennung).'],
+  ['Luftmassenmesser','Heißfilm- oder Hitzdrahtsensor – die wichtigste Größe für die Einspritzmenge.'],
+  ['Saugrohrdrucksensor','Drucksensor im Saugrohr, Alternative oder Ergänzung zum Luftmassenmesser.'],
+  ['Kühlmitteltemperatursensor','NTC-Widerstand – Kaltstartanreicherung, Kühlerlüfter, Korrekturkennlinien.'],
+  ['Kühlmitteltemperatursensor','(im Kopf) – Kaltstartanreicherung, Lüftersteuerung, Ersatzwerte bei Fehler.'],
+  ['Drosselklappen-/Fahrpedalsensor','Zwei Potenziometer oder Hallsensoren für die Momentenfreigabe.'],
+  ['Lambdasonde','Sprungsonde vor dem Kat (Regelung) und nach dem Kat (Überwachung).'],
+  ['Klopfsensor','Piezo-Körperschallsensor – schützt vor Klopfen durch Zündwinkelrücknahme.'],
+  ['Lufttemperatursensor','NTC im Ansaugtrakt – Korrektur der Luftdichte.'],
+  ['Tankentlüftungsventil','Magnetventil – führt Benzindämpfe aus dem Aktivkohlefilter dem Motor zu.'],
+  ['AGR-Ventil','Abgasrückführungsventil – senkt die Stickoxide durch niedrigere Verbrennungstemperatur.']
+];
+
+const GLOSSAR = [
+  ['OT','Oberer Totpunkt – höchster Punkt des Kolbens, Kurbelwinkel 0°.'],
+  ['UT','Unterer Totpunkt – tiefster Punkt des Kolbens, Kurbelwinkel 180°.'],
+  ['Kurbelwinkel','Drehwinkel der Kurbelwelle in Grad. Zwei Umdrehungen (720°) bilden einen Viertaktzyklus.'],
+  ['Zündfolge','Reihenfolge, in der die Zylinder zünden, z. B. 1-3-4-2.'],
+  ['Zündabstand','Grad zwischen zwei Zündungen. Bei Viertakt 720° / Zylinderzahl, bei Zweitakt 360° / Zylinderzahl.'],
+  ['Steuerzeiten','Öffnungsbeginn und Schließzeitpunkt der Ventile in Grad Kurbelwinkel vor oder nach OT bzw. UT.'],
+  ['Ventilüberschneidung','Zeitraum um den OT-Lagewechsel, in dem Einlass- und Auslassventil gleichzeitig offen sind.'],
+  ['Verdichtungsverhältnis ε','ε = (Vh + Vc) / Vc. Vh ist der Hubraum, Vc der Verdichtungsraum.'],
+  ['Hubraum Vh','Vh = π · d² / 4 · s. Gesamthubraum = Vh × Zylinderzahl.'],
+  ['Lambda λ','Verhältnis Luft zu Kraftstoff im Vergleich zum stöchiometrischen Verhältnis. λ = 1 bedeutet 14,7 kg Luft je kg Benzin.'],
+  ['Zündwinkel','Grad vor OT, bei dem der Zündfunke ausgelöst wird.'],
+  ['Hubzapfenversatz','Winkelversatz der Kröpfungen einer Kurbelwelle – bestimmt Zündfolge und Laufruhe.'],
+  ['Blow-by','Verbrennungsgase, die am Kolben vorbei ins Kurbelgehäuse gelangen.'],
+  ['Füllung','Masse der Frischladung im Zylinder, bezogen auf den theoretisch möglichen Wert.'],
+  ['Schichtladung','Betriebsart mit zündfähigem Gemisch nur an der Zündkerze, im restlichen Brennraum mager.'],
+  ['λ-Fenster','Bereich um λ = 1, in dem der Drei-Wege-Katalysator gleichzeitig alle drei Schadstoffe umsetzt.']
+];
+
+/* =====================================================================
+   Motor-Management Lernstudio – 3D-Szene
+   Aufbau:  reine Geometrie-Fabrik (makeCylinderUnit, makeCrank, ...)
+            + MotorController (baut die Szene aus einer Konfiguration)
+   ===================================================================== */
+
+const M = {
+  block:  new THREE.MeshStandardMaterial({ color:0x8fa3b4, metalness:.85, roughness:.42 }),
+  head:   new THREE.MeshStandardMaterial({ color:0xa9bccb, metalness:.80, roughness:.38 }),
+  steel:  new THREE.MeshStandardMaterial({ color:0xc4ced8, metalness:.95, roughness:.25 }),
+  dark:   new THREE.MeshStandardMaterial({ color:0x39434e, metalness:.60, roughness:.70 }),
+  piston: new THREE.MeshStandardMaterial({ color:0xdfe7ee, metalness:.90, roughness:.18 }),
+  valveIn:new THREE.MeshStandardMaterial({ color:0x49b7ff, metalness:.75, roughness:.30 }),
+  valveEx:new THREE.MeshStandardMaterial({ color:0xff8a4d, metalness:.75, roughness:.30 }),
+  cam:    new THREE.MeshStandardMaterial({ color:0xb9c6d2, metalness:.90, roughness:.22 }),
+  belt:   new THREE.MeshStandardMaterial({ color:0x2f3944, metalness:.20, roughness:.90 }),
+  plug:   new THREE.MeshStandardMaterial({ color:0xe8e2d0, metalness:.60, roughness:.30 }),
+  oil:    new THREE.MeshStandardMaterial({ color:0xc88a2a, metalness:.30, roughness:.35,
+                                           transparent:true, opacity:.75 }),
+  gas:    new THREE.MeshStandardMaterial({ color:0x4fc3f7, transparent:true, opacity:.1,
+                                           depthWrite:false, side:THREE.DoubleSide })
+};
+
+const DIM = {
+  BORE: 0.95,        /* Bohrung in Szeneneinheiten (1 = 8 cm) */
+  STROKE: 1.90,      /* Hub */
+  DECK: 4.80,        /* Zylinderdeck über Kurbelwellenmitte */
+  ROD: 3.20,         /* Pleuellänge */
+  CRANK_R: 0.95,     /* Kurbelradius = Hub/2 */
+  SPACING: 1.30      /* Zylinderabstand (Bohrungsabstand) */
+};
+DIM.CRANK_R = DIM.STROKE / 2;
+
+/* ---------------- Geometrie-Bausteine ---------------- */
+function valveUnit(mat, name){
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,1.5,14), mat);
+  stem.name = name; g.add(stem);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(.30,.26,.09,26), mat);
+  head.position.y = -.78; head.name = name; g.add(head);
+  const taper = new THREE.Mesh(new THREE.ConeGeometry(.28,.16,26), mat);
+  taper.position.y = -.64; taper.name = name; g.add(taper);
+  const spring = new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,.5,14,1,true), M.steel);
+  spring.position.y = .34; spring.name = 'Ventilfeder'; g.add(spring);
+  const ret = new THREE.Mesh(new THREE.CylinderGeometry(.17,.14,.09,16), M.steel);
+  ret.position.y = .60; ret.name = 'Ventilfeder'; g.add(ret);
+  return { group:g, spring };
+}
+
+function camUnit(){
+  const g = new THREE.Group(); g.name = 'Nockenwelle';
+  const s = new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,1.3,24), M.cam);
+  s.name = 'Nockenwelle'; g.add(s);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(.24,.24,.34,32), M.cam);
+  base.rotation.z = Math.PI/2; base.position.y = .08; base.name = 'Nockengrundkreis'; g.add(base);
+  const lobe = new THREE.Mesh(new THREE.BoxGeometry(.34,.30,.20), M.cam);
+  lobe.position.set(0,.32,.08); lobe.rotation.x = .25; lobe.name = 'Nockenwelle'; g.add(lobe);
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(.10,.10,.34,16), M.cam);
+  tip.rotation.z = Math.PI/2; tip.position.set(0,.44,.10); tip.name = 'Nockenwelle'; g.add(tip);
+  [-.5,.5].forEach(z=>{
+    const j = new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.16,24), M.steel);
+    j.rotation.z = Math.PI/2; j.position.set(0,0,z); j.name = 'Nockenwellenlager'; g.add(j);
+  });
+  const mark = new THREE.Mesh(new THREE.BoxGeometry(.10,.18,.36), M.steel);
+  mark.position.set(0,-.30,.15); mark.name = 'Nockenwellenmarkierung'; g.add(mark);
+  return g;
+}
+
+function sparkPlug(){
+  const g = new THREE.Group(); g.name = 'Zündkerze';
+  const iso = new THREE.Mesh(new THREE.CylinderGeometry(.14,.14,.55,18), M.plug);
+  iso.name = 'Zündkerze'; g.add(iso);
+  const hex = new THREE.Mesh(new THREE.CylinderGeometry(.19,.19,.30,6), M.steel);
+  hex.position.y = -.40; hex.name = 'Zündkerze'; g.add(hex);
+  const thr = new THREE.Mesh(new THREE.CylinderGeometry(.10,.10,.55,14), M.steel);
+  thr.position.y = -.80; thr.name = 'Zündkerze'; g.add(thr);
+  const mid = new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.22,8), M.steel);
+  mid.position.y = -1.20; mid.name = 'Zündkerze'; g.add(mid);
+  const mass = new THREE.Mesh(new THREE.BoxGeometry(.07,.05,.28), M.steel);
+  mass.position.set(0,-1.30,.10); mass.name = 'Zündkerze'; g.add(mass);
+  return g;
+}
+
+function injector(){
+  const g = new THREE.Group(); g.name = 'Einspritzventil';
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.11,.14,.90,16), M.dark);
+  body.name = 'Einspritzventil'; g.add(body);
+  const noz = new THREE.Mesh(new THREE.ConeGeometry(.08,.22,14), M.steel);
+  noz.position.y = -.55; noz.name = 'Einspritzventil'; g.add(noz);
+  return g;
+}
+
+/* ---------------- eine komplette Zylindereinheit ----------------
+   Lokales Koordinatensystem:
+     y = Zylinderachse, 0 liegt auf der Kurbelwellenmitte
+     Kolben bewegt sich von  DECK-STROKE  (UT)  bis  DECK  (OT)
+   -------------------------------------------------------------- */
+function makeCylinderUnit(){
+  const g = new THREE.Group();
+
+  /* Zylinderlaufbuchse */
+  const liner = new THREE.Mesh(
+    new THREE.CylinderGeometry(DIM.BORE/2+.08, DIM.BORE/2+.13, DIM.DECK+.9, 40, 1, true), M.block);
+  liner.position.y = (DIM.DECK)/2 - .45; liner.name = 'Zylinder';
+  g.add(liner);
+
+  /* Kühlrippen */
+  for (let i=0;i<7;i++){
+    const r = new THREE.Mesh(new THREE.BoxGeometry(DIM.BORE+.7,.07,DIM.BORE+.7), M.block);
+    r.position.y = -0.05 + i*.45; r.name = 'Zylinder'; g.add(r);
+  }
+
+  /* Kolben */
+  const piston = new THREE.Group(); piston.name = 'Kolben';
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(DIM.BORE/2-.02, DIM.BORE/2-.02,.52,36), M.piston);
+  crown.name = 'Kolben'; piston.add(crown);
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(.20,.16,.10,20), M.piston);
+  bowl.position.y = .27; bowl.name = 'Brennraum'; piston.add(bowl);
+  for (let i=0;i<4;i++){
+    const oil = (i === 3);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(DIM.BORE/2-.02, oil ? .022 : .030, 10, 48),
+      oil ? M.dark : M.steel);
+    ring.rotation.x = Math.PI/2; ring.position.y = .17 - i*.105; ring.name = 'Kolbenring';
+    piston.add(ring);
+  }
+  const groove = new THREE.Mesh(
+    new THREE.CylinderGeometry(DIM.BORE/2-.035, DIM.BORE/2-.035, .48, 36), M.dark);
+  groove.position.y = .10; groove.name = 'Kolbenring'; piston.add(groove);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(DIM.BORE/2-.03,DIM.BORE/2-.05,.55,36), M.piston);
+  skirt.position.y = -.50; skirt.name = 'Kolben'; piston.add(skirt);
+  const bolt = new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,DIM.BORE-.10,18), M.steel);
+  bolt.rotation.z = Math.PI/2; bolt.position.y = -.22; bolt.name = 'Kolbenbolzen'; piston.add(bolt);
+  piston.position.y = DIM.DECK - .30;
+  g.add(piston);
+
+  /* Pleuel – Einheitslänge 1, wird skaliert */
+  const rod = new THREE.Group(); rod.name = 'Pleuel';
+  const rodBody = new THREE.Mesh(new THREE.BoxGeometry(.15,1,.32), M.steel);
+  rodBody.name = 'Pleuel'; rod.add(rodBody);
+  const bigEnd = new THREE.Mesh(new THREE.CylinderGeometry(.32,.32,.38,24), M.steel);
+  bigEnd.rotation.z = Math.PI/2; bigEnd.position.y = -.5; bigEnd.name = 'Pleuel'; rod.add(bigEnd);
+  const smallEnd = new THREE.Mesh(new THREE.CylinderGeometry(.17,.17,.38,20), M.steel);
+  smallEnd.rotation.z = Math.PI/2; smallEnd.position.y = .5; smallEnd.name = 'Pleuel'; rod.add(smallEnd);
+  g.add(rod);
+
+  /* Zylinderkopf */
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(DIM.BORE+1.4,.45,DIM.BORE+1.4), M.head);
+  deck.position.y = DIM.DECK+.20; deck.name = 'Zylinderkopf'; g.add(deck);
+  for (let i=0;i<3;i++){
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(DIM.BORE+1.25,.07,DIM.BORE+1.25), M.head);
+    fin.position.y = DIM.DECK+.50+i*.22; fin.name = 'Zylinderkopf'; g.add(fin);
+  }
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(DIM.BORE+1.05,.30,DIM.BORE+1.05), M.head);
+  cover.position.y = DIM.DECK+1.20; cover.name = 'Zylinderkopf'; g.add(cover);
+
+  /* Brennraum (Gasvolumen) */
+  const chamber = new THREE.Mesh(
+    new THREE.CylinderGeometry(DIM.BORE/2-.03, DIM.BORE/2-.03,.45,32), M.gas.clone());
+  chamber.name = 'Brennraum'; chamber.userData.isGas = true;
+  g.add(chamber);
+
+  /* Ventile */
+  const iv = valveUnit(M.valveIn, 'Einlassventil');
+  const ev = valveUnit(M.valveEx, 'Auslassventil');
+  iv.group.position.set(-.30, DIM.DECK+.95, -.24); iv.group.rotation.z =  0.20;
+  ev.group.position.set( .30, DIM.DECK+.95,  .24); ev.group.rotation.z = -0.20;
+  g.add(iv.group, ev.group);
+
+  /* Zündkerze + Düse */
+  const plug = sparkPlug(); plug.position.set(0, DIM.DECK+.95, 0); g.add(plug);
+  const inj = injector(); inj.position.set(-.58, DIM.DECK+.35, .52);
+  inj.rotation.x = -.30; inj.rotation.z = .22; g.add(inj);
+
+  /* Nockenwellen */
+  const camIn = camUnit(); camIn.position.set(-.30, DIM.DECK+1.95, 0);
+  const camEx = camUnit(); camEx.position.set( .30, DIM.DECK+1.95, 0);
+  g.add(camIn, camEx);
+
+  g.userData = { piston, rod, chamber, iv, ev, camIn, camEx };
+  return g;
+}
+
+/* ---------------- Kurbelwelle ---------------- */
+function makeCrank(pins, zMin, zMax){
+  const g = new THREE.Group(); g.name = 'Kurbelwelle';
+  const main = new THREE.Mesh(
+    new THREE.CylinderGeometry(.18,.18, zMax-zMin, 20), M.steel);
+  main.rotation.x = Math.PI/2; main.position.z = (zMin+zMax)/2;
+  main.name = 'Kurbelwelle'; g.add(main);
+
+  for (let i = 0; i <= 6; i++){
+    const brg = new THREE.Mesh(new THREE.TorusGeometry(.24,.045,10,32), M.steel);
+    brg.position.z = zMin + i*(zMax-zMin)/6; brg.name = 'Hauptlager'; g.add(brg);
+  }
+  pins.forEach(p=>{
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.50,24), M.steel);
+    pin.rotation.x = Math.PI/2; pin.name = 'Kurbelwelle';
+    pin.userData = { isPin:true, cyl:p.no, z:p.z, pinOffset:p.crankOffset };
+    g.add(pin);
+
+    const web = new THREE.Mesh(new THREE.BoxGeometry(.26,2.0,.52), M.dark);
+    web.name = 'Kurbelwelle';
+    web.userData = { isWeb:true, cyl:p.no, z:p.z, pinOffset:p.crankOffset };
+    g.add(web);
+
+    const cw = new THREE.Mesh(
+      new THREE.CylinderGeometry(.50,.50,.42,28,1,false,0,Math.PI), M.steel);
+    cw.rotation.x = Math.PI/2; cw.rotation.z = Math.PI;
+    cw.name = 'Gegengewicht';
+    cw.userData = { isCw:true, cyl:p.no, z:p.z, pinOffset:p.crankOffset };
+    g.add(cw);
+  });
+  return g;
+}
+
+/* ---------------- Steuerkette (zeigt halbe Nockenwellendrehzahl) -------- */
+function makeCamDrive(y, r){
+  const g = new THREE.Group(); g.name = 'Nockenwellenantrieb';
+  const chain = new THREE.Mesh(new THREE.TorusGeometry(r,.07,10,56), M.belt);
+  chain.name = 'Steuerkette'; g.add(chain);
+  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(r,r,.20,44), M.cam);
+  wheel.rotation.x = Math.PI/2; wheel.name = 'Nockenwellenrad'; g.add(wheel);
+  const mark = new THREE.Mesh(new THREE.BoxGeometry(.10,.18,.40), M.steel);
+  mark.position.set(0, r-.1, 0); mark.name = 'Steuerkette'; g.add(mark);
+  g.position.set(0, y, 0);
+  g.rotation.y = Math.PI/2;
+  g.userData = { mark };
+  return g;
+}
+
+
+/* Kolbenweg: 1 = oberer Totpunkt, 0 = unterer Totpunkt.
+   lam = Pleuelstangenverhaeltnis (Pleuellaenge / Kurbelradius) */
+function piston01(lam, theta){
+  const s = Math.cos(theta) + Math.sqrt(Math.max(0, 1/(lam*lam) - Math.sin(theta)**2)) * lam;
+  const sMax = 1 + lam, sMin = lam - 1;
+  return (s - sMin) / (sMax - sMin);
+}
+
+/* =====================================================================
+   MotorController
+   ===================================================================== */
+class MotorController {
+  constructor(scene){
+    this.scene = scene;
+    this.root = new THREE.Group();      scene.add(this.root);
+    this.cyls = new THREE.Group();      this.root.add(this.cyls);
+    this.helper = new THREE.Group();    this.root.add(this.helper);
+    this.units = [];
+    this.pins = [];
+    this.cfg = makeConfig(4,'R');
+    this.cycles = 4;
+  }
+
+  /* Liefert pro Zylinder: Bank, Längsposition z, Achsrichtung, Kurbelversatz */
+  static layout(cfg){
+    const out = [];
+    const sp = DIM.SPACING;
+    if (cfg.layout === 'R'){
+      const spread = Math.max(0, cfg.n-1)*sp;
+      cfg.banks[0].cyl.forEach((no,i)=>{
+        out.push({ no, bank:'R', z: spread/2 - i*sp,
+                   dir:new THREE.Vector3(0,1,0),
+                   crankOffset: cfg.fireAngle[no] });
+      });
+    } else {
+      const per = cfg.banks[0].cyl.length;
+      const spread = Math.max(0, per-1)*sp;
+      const bankOff = (cfg.layout === 'W') ? .55 : 0;
+      cfg.banks.forEach((b,bi)=>{
+        const a = THREE.MathUtils.degToRad(b.angle);
+        b.cyl.forEach((no,i)=>{
+          const z = spread/2 - i*sp + (bi-(cfg.banks.length-1)/2)*.28;
+          const dir = new THREE.Vector3(Math.sin(a), Math.cos(a), 0).normalize();
+          /* Die Bank wird in der Ebene senkrecht zur Kurbelwelle gespreizt.
+             offsetX verschiebt die Bank seitlich, damit sich die Bänke
+             an der Kurbelwelle treffen. */
+          out.push({ no, bank:b.id, z, dir,
+                     offset: dir.clone().multiplyScalar(0),
+                     crankOffset: cfg.fireAngle[no] });
+        });
+      });
+    }
+    return out;
+  }
+
+  build(cfg, cycles){
+    this.cfg = cfg; this.cycles = cycles;
+    /* alte Szene räumen */
+    [this.cyls, this.helper].forEach(grp=>{
+      while(grp.children.length){
+        const c = grp.children.pop();
+        c.traverse?.(o=>{ o.geometry?.dispose?.(); if(o.userData.isGas || o.name === "Kurbelgehäuse") o.material?.dispose(); });
+      }
+    });
+    this.units = []; this.pins = [];
+
+    const place = MotorController.layout(cfg);
+    this.place = place;
+
+    const zs = place.map(p=>p.z);
+    const zMin = Math.min(...zs) - DIM.SPACING, zMax = Math.max(...zs) + DIM.SPACING;
+
+    place.forEach(p=>{
+      const u = makeCylinderUnit();
+      /* Achse ausrichten */
+      u.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), p.dir);
+      /* Position: Kurbelwellenachse liegt bei y=0,z=p.z; die Bank dreht um die
+         Kurbelwellen-Längsachse (z), also bleibt die Achse am selben z. */
+      u.position.set(0, 0, p.z);
+      u.userData.cyl = p.no;
+      u.userData.p = p;
+      this.cyls.add(u);
+      this.units.push(u); if(cycles===2){ for(const part of [u.userData.iv.group,u.userData.ev.group,u.userData.camIn,u.userData.camEx]) part.visible=false; }
+    });
+
+    /* Kurbelwelle */
+    const crank = makeCrank(place, zMin, zMax);
+    this.helper.add(crank);
+    this.crank = crank;
+
+    /* Kurbelgehäuse + Ölwanne */
+    const caseH = 1.0;
+    const block = new THREE.Mesh(
+      new THREE.BoxGeometry(DIM.BORE+2.1, 3.4, zMax-zMin),
+      new THREE.MeshStandardMaterial({ color:0x7d919f, metalness:.85, roughness:.45,
+                                       side:THREE.DoubleSide }));
+    block.position.set(0, -1.15, (zMin+zMax)/2); block.name = 'Kurbelgehäuse';
+    this.helper.add(block);
+    const pan = new THREE.Mesh(
+      new THREE.BoxGeometry(DIM.BORE+1.7, .7, (zMax-zMin)*.95), M.dark);
+    pan.position.set(0, -3.0, (zMin+zMax)/2); pan.name = 'Ölwanne';
+    this.helper.add(pan);
+
+    /* Steuerkette vorn */
+    const cam = makeCamDrive(DIM.DECK+1.95, 1.5);
+    cam.position.z = zMax - DIM.SPACING*0.1;
+    this.helper.add(cam);
+    this.camDrive = cam; cam.visible=cycles===4;
+
+    /* Schwungrad mit Anlasserzahnkranz am hinteren Wellenende */
+    const fw = new THREE.Group(); fw.name = 'Schwungrad';
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.9,1.9,.22,48), M.dark);
+    disc.rotation.x = Math.PI/2; disc.name = 'Schwungrad'; fw.add(disc);
+    const starterRing = new THREE.Mesh(new THREE.TorusGeometry(1.95,.09,10,56), M.steel);
+    starterRing.name = 'Anlasserzahnkranz'; fw.add(starterRing);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.45,.45,.30,24), M.steel);
+    hub.rotation.x = Math.PI/2; hub.name = 'Schwungrad'; fw.add(hub);
+    fw.position.z = zMin - .35;
+    this.helper.add(fw);
+    this.flywheel = fw;
+
+    /* Kettenrad unten an der Kurbelwelle (halbe Größe) */
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(.75,.75,.24,32), M.cam);
+    lower.rotation.x = Math.PI/2; lower.position.set(0,0,zMax - DIM.SPACING*0.1);
+    lower.name = 'Kurbelwellenrad'; this.helper.add(lower);
+    this.lowerGear = lower; lower.visible=cycles===4;
+
+    if (cycles === 2){
+      this.helper.add(this.scavengeHint(zMin, zMax));
+    }
+    return { zMin, zMax };
+  }
+
+  scavengeHint(zMin,zMax){
+    const g = new THREE.Group(); g.name = 'Überströmkanal';
+    [-1,1].forEach(s=>{
+      const t = new THREE.Mesh(new THREE.BoxGeometry(.35,.35, (zMax-zMin)*.9),
+                               new THREE.MeshStandardMaterial({ color:0x39a9ff, metalness:.5,
+                                 roughness:.4, transparent:true, opacity:.55 }));
+      t.position.set(s*(DIM.BORE/2+.35), -.6, (zMin+zMax)/2);
+      t.name = 'Überströmkanal'; g.add(t);
+    });
+    return g;
+  }
+
+  /* ---------------- Animation eines Frames ---------------- */
+  update(crankDeg){
+    const span = this.cycles === 2 ? 360 : 720;
+
+    for (const u of this.units){
+      const p = u.userData.p;
+      const local = ((crankDeg - p.crankOffset * span/720 + (span===720 ? 360 : 0)) % span + span) % span;
+      const th = THREE.MathUtils.degToRad(local % 360);
+
+      /* Kolben */
+      const p01 = piston01(0.28, th);
+      const yOT = DIM.DECK - .30, yUT = yOT - DIM.STROKE;
+      const yP = DIM.CRANK_R*Math.cos(th)+Math.sqrt(DIM.ROD**2-(DIM.CRANK_R*Math.sin(th))**2)+.22;
+      u.userData.piston.position.y = yP;
+
+      /* Hubzapfen in lokalen Koordinaten: liegt auf y-Achse bei
+         CRANK_R*cos, seitlich CRANK_R*sin in Kurbelwellen-Querrichtung.
+         Da die Zylindergruppe um die z-Achse gedreht ist, ist die
+         Querrichtung die lokale x-Achse. */
+      const pinX = DIM.CRANK_R*Math.sin(th);
+      const pinY = DIM.CRANK_R*Math.cos(th);
+
+      /* Pleuel */
+      const boltY = yP - .22, boltX = 0;
+      const dx = boltX - pinX, dy = boltY - pinY;
+      const L = Math.hypot(dx,dy) || .001;
+      const rod = u.userData.rod;
+      rod.position.set((boltX+pinX)/2, (boltY+pinY)/2, 0);
+      rod.scale.y = L;
+      rod.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0,1,0), new THREE.Vector3(dx/L, dy/L, 0));
+
+      /* Ventile */
+      const st = this.cycles === 2 ? state2(local) : state4(local);
+      const li = st.intake*0.42, le = st.exhaust*0.42;
+      u.userData.iv.group.position.y = DIM.DECK + .95 - li;
+      u.userData.ev.group.position.y = DIM.DECK + .95 - le;
+      u.userData.iv.spring.scale.y = Math.max(.15, 1 - li*0.85);
+      u.userData.ev.spring.scale.y = Math.max(.15, 1 - le*0.85);
+
+      /* Nockenwellen: halbe Kurbelwellendrehzahl (bzw. 1× bei Zweitakt) */
+      const camFactor = this.cycles === 2 ? 1 : .5;
+      u.userData.camIn.rotation.y =  THREE.MathUtils.degToRad(-local*camFactor);
+      u.userData.camEx.rotation.y =  THREE.MathUtils.degToRad(-local*camFactor + 100);
+
+      /* Gasvolumen färben */
+      u.userData.chamber.material.color.set(st.color);
+      u.userData.chamber.material.opacity = st.alpha;
+    }
+
+    /* Hubzapfen + Kurbelarme */
+    this.crank.children.forEach(ch=>{
+      const d = ch.userData;
+      if (!d.cyl) return;
+      const local = ((crankDeg + d.pinOffset) % span + span) % span;
+      const th = THREE.MathUtils.degToRad(local % 360);
+      const x = DIM.CRANK_R*Math.sin(th);
+      const y = DIM.CRANK_R*Math.cos(th);
+      if (d.isPin){
+        const p=this.place.find(p=>p.no===d.cyl); const th2=THREE.MathUtils.degToRad(crankDeg-p.crankOffset*span/720); const xx=DIM.CRANK_R*Math.sin(th2), yy=DIM.CRANK_R*Math.cos(th2); ch.position.set(xx*p.dir.y+yy*p.dir.x, yy*p.dir.y-xx*p.dir.x,d.z);
+      } else if (d.isWeb){
+        const pin=this.crank.children.find(p=>p.userData.isPin && p.userData.cyl===d.cyl); ch.position.set(pin.position.x/2,pin.position.y/2,d.z); ch.rotation.z=-Math.atan2(pin.position.x,pin.position.y);
+        ch.scale.y = Math.hypot(x,y) / 1.0;
+      }
+    });
+
+    /* Steuerkette: Winkelmarkierung dreht mit halber Drehzahl */
+    if (this.flywheel){ this.flywheel.rotation.z = -THREE.MathUtils.degToRad(crankDeg); }
+    if (this.camDrive){
+      const total = THREE.MathUtils.degToRad(((crankDeg % 720)+720)%720);
+      this.camDrive.children[2].rotation.z = -(this.cycles===2 ? total : total/2);
+      this.lowerGear.rotation.z = -total;
+      const camFactor = this.cycles===2 ? 1 : .5;
+      this.camDrive.children[1].rotation.z = -total*camFactor;
+    }
+  }
+
+  /* ---------- Zykluszustand aus dem Kurbelwinkel ---------- */
+  /* Steuerzeiten (Beispielmotor, typische Werte):
+     Einlass öffnet 12° vor OT bis 48° nach UT
+     Auslass öffnet 45° vor UT bis 8° nach OT
+     Überschneidung um 720°/0° herum.                             */
+}
+
+/* Ventilhub-Verlauf als Sinus über den offenen Bereich.
+   open/close in Grad (0…720); Werte über 720 werden umgeklappt. */
+function lift(a, open, close, span=720){
+  const norm = v => ((v % span) + span) % span;
+  const o = norm(open), c = norm(close);
+  const x = norm(a);
+  let inside, t, len;
+  if (o < c){ len = c-o; inside = x>=o && x<=c; t = (x-o)/len; }
+  else { len = (span-o)+c; inside = x>=o || x<=c; t = x>=o ? (x-o)/len : (span-o+x)/len; }
+  if (!inside) return 0;
+  return Math.sin(Math.PI*Math.max(0,Math.min(1,t)));
+}
+
+function state4(a){
+  const IN_OPEN = 708,  IN_CLOSE = 228;    /* 12° vor OT … 48° nach UT */
+  const EX_OPEN = 495,  EX_CLOSE = 728;    /* 45° vor UT …  8° nach OT (als 728) */
+  const intake  = lift(a, IN_OPEN, IN_CLOSE);
+  const exhaust = lift(a, EX_OPEN, EX_CLOSE);
+  let label, color, alpha = .30;
+  if (a < 180)      { label='1. Ansaugen';              color='#4fc3f7'; alpha=.34; }
+  else if (a < 360) { label='2. Verdichten';            color='#ffd54f'; alpha=.20; }
+  else if (a < 540) { label='3. Arbeiten';              color='#ff7043'; alpha=.55; }
+  else              { label='4. Ausstoßen';             color='#a1887f'; alpha=.30; }
+  return { label, color, alpha, intake, exhaust, ignition: a>340 && a<360 };
+}
+
+function state2(a){
+  const x = ((a % 360)+360)%360;
+  const exhaust = lift(x, 100, 260, 360);
+  const intake  = lift(x, 118, 242, 360);
+  const label = x < 180 ? 'Arbeiten' : 'Verdichten / Spülen';
+  const color = x < 180 ? '#ff7043' : '#4fc3f7';
+  return { label, color, alpha: x<180 ? .55 : .30, intake, exhaust, ignition: x>340 && x<360 };
+}
+
+const $ = id => document.getElementById(id);
+
+/* ================= Zustand ================= */
+const S = {
+  layout:'R', cyl:4, cycles:4, angleDeg:0, rpm:1200, playing:false,
+  speed:1, focusCyl:1, cut:true, view:'iso', meta:{}, playing:true, turnPause:true
+};
+let cfg = makeConfig(S.cyl, S.layout);
+
+/* ================= Renderer ================= */
+const stage = $('stage');
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = false;
+renderer.localClippingEnabled = true;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x080c11, 55, 150);
+
+const camera = new THREE.PerspectiveCamera(45, 1, .1, 600);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = .08;
+controls.minDistance = 4; controls.maxDistance = 90;
+controls.target.set(0, 2.6, 0);
+
+/* Licht */
+scene.add(new THREE.HemisphereLight(0xc7dcff, 0x1b232c, .95));
+const key = new THREE.DirectionalLight(0xffffff, 1.45); key.position.set(16,26,14); scene.add(key);
+const fill = new THREE.DirectionalLight(0x88bbff, .55); fill.position.set(-16,9,-12); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffd08a, .5); rim.position.set(-8,-12,12); scene.add(rim);
+
+const grid = new THREE.GridHelper(70, 35, 0x24404f, 0x16232c);
+grid.position.y = -4.2; grid.material.transparent = true; grid.material.opacity = .5;
+scene.add(grid);
+
+/* Clipping für die Schnittansicht */
+const clip = new THREE.Plane(new THREE.Vector3(0,0,-1), .6);
+
+/* ================= Motor ================= */
+const motor = new MotorController(scene);
+
+/* ================= Aufbau ================= */
+function build(){
+  cfg = makeConfig(S.cyl, S.layout);
+  S.meta = {};
+  const info = motor.build(cfg, S.cycles);
+
+  /* Steuerzeiten des Modells */
+  const vt = {inOpen:12,inClose:48,exOpen:45,exClose:8,overlap:20};
+  S.info = info;
+  S.vt = vt;
+
+  /* Kamera an Größe anpassen */
+  const size = Math.max(info.zMax - info.zMin, 6);
+  setView(S.view, size);
+  controls.minDistance = size * .35;
+  controls.maxDistance = size * 4.2;
+
+  updateBadge(); buildCylButtons(); buildFocusButtons(); applyClip();
+  angleEl.max = S.cycles === 2 ? 360 : 720;
+  if (S.angleDeg > +angleEl.max) S.angleDeg = 0;
+  angleEl.value = S.angleDeg;
+  update(0);
+}
+
+/* ================= Animation ================= */
+let last = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  const dt = Math.min(.05, (now - last)/1000); last = now;
+  const blocked = dragging && S.turnPause;
+  if (S.playing && !blocked){
+    const degPerSec = (S.rpm/60)*360*S.speed/40;
+    S.angleDeg = (S.angleDeg + degPerSec*dt) % (S.cycles === 2 ? 360 : 720);
+    if (!dragging) angleEl.value = S.angleDeg.toFixed(0);
+  }
+  update(dt);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function update(dt){
+  const a = S.angleDeg;
+  motor.update(a);
+
+  const span = S.cycles === 2 ? 360 : 720;
+  const focus = S.focusCyl || 1;
+  const local = ((a - (cfg.fireAngle[focus] || 0)*span/720 + (span===720?360:0)) % span + span) % span;
+  const st = S.cycles === 2 ? state2(local) : state4(local);
+
+  const chip = $('cyleChip');
+  chip.textContent = `Zylinder ${focus}: ${st.label} · ${Math.floor(local)}° lokal`;
+  chip.style.borderLeftColor = st.color;
+  $('winkelChip').innerHTML =
+    `Kurbelwinkel: <span>${a.toFixed(0).padStart(3,'0')}°</span> · ` +
+    `${S.cycles === 2 ? '2 Takte (360°)' : '4 Takte (720°)'}`;
+
+  const vc = $('valveChip');
+  vc.querySelector(".vrow span").textContent=S.cycles===2?"Überströmen":"Einlass";
+  vc.classList.add('on');
+  $('barIn').style.width = (st.intake*100).toFixed(0) + '%';
+  $('barEx').style.width = (st.exhaust*100).toFixed(0) + '%';
+}
+
+/* ================= Bedienelemente ================= */
+const angleEl = $('angle');
+let dragging = false;
+
+function updateBadge(){
+  $('cfgBadge').textContent = `${S.layout}${S.cyl} · ${S.cycles === 2 ? 'Zweitakt' : 'Viertakt'}`;
+}
+
+function buildCylButtons(){
+  const w = $('cylBtns'); w.innerHTML = '';
+  VALID[S.layout].forEach(n=>{
+    const b = document.createElement('button');
+    b.className = 'opt' + (n === S.cyl ? ' on' : '');
+    b.textContent = n; b.onclick = ()=>{ S.cyl = n; if(S.focusCyl > n) S.focusCyl = 1; build(); };
+    w.appendChild(b);
+  });
+}
+function buildFocusButtons(){
+  const w = $('focusBtns'); w.innerHTML = '';
+  for (let i=1;i<=S.cyl;i++){
+    const b = document.createElement('button');
+    b.className = 'opt' + (i === S.focusCyl ? ' on' : '');
+    b.textContent = 'Z' + i;
+    b.onclick = ()=>{ S.focusCyl = i; buildFocusButtons(); update(0); };
+    w.appendChild(b);
+  }
+}
+
+$('layBtns').innerHTML = ['R','V','W'].map(l =>
+  `<button class="opt${l === 'R' ? ' on' : ''}" data-lay="${l}">${LAYOUT_NAME[l]}</button>`).join('');
+$('layBtns').onclick = e=>{
+  const l = e.target.dataset.lay; if (!l) return;
+  S.layout = l;
+  if (!VALID[l].includes(S.cyl)) S.cyl = VALID[l].includes(4) ? 4 : VALID[l][0];
+  if (S.focusCyl > S.cyl) S.focusCyl = 1;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle('on', c.dataset.lay === l));
+  build();
+};
+$('cycBtns').innerHTML = [4,2].map(k =>
+  `<button class="opt${k === 4 ? ' on' : ''}" data-cyc="${k}">${k} Takte</button>`).join('');
+$('cycBtns').onclick = e=>{
+  const k = e.target.dataset.cyc; if (!k) return;
+  S.cycles = +k;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle('on', +c.dataset.cyc === S.cycles));
+  build();
+};
+angleEl.addEventListener('input', ()=>{
+  const was = S.playing; S.playing = false; updatePlay();
+  S.angleDeg = +angleEl.value; update(0);
+  if (was) setTimeout(()=>{ S.playing = true; updatePlay(); }, 600);
+});
+document.querySelectorAll('[data-step]').forEach(b => b.onclick = ()=>{
+  if (b.id === 'btnZero') return;
+  const v = +b.dataset.step;
+  const span = S.cycles === 2 ? 360 : 720;
+  S.angleDeg = ((S.angleDeg + v) % span + span) % span;
+  angleEl.value = S.angleDeg; update(0);
+});
+
+/* Schalter: soll das Drehen des Modells die Animation anhalten? */
+$('optBtns').onclick = e=>{
+  const o = e.target.dataset.opt; if (!o) return;
+  if (o === 'cut'){ S.cut = !S.cut; applyClip(); }
+  else { S.turnPause = !S.turnPause; }
+  const cut = e.currentTarget.children[0], tp = e.currentTarget.children[1];
+  cut.classList.toggle('on', S.cut);
+  cut.textContent = S.cut ? 'Hülle an' : 'Hülle aus';
+  tp.classList.toggle('on', S.turnPause);
+  tp.textContent = S.turnPause ? 'Drehen stoppt' : 'Drehen stoppt nicht';
+};
+$('btnZero').onclick = ()=>{ S.angleDeg = 0; angleEl.value = 0; update(0); };
+$('btnPlay').onclick = ()=>{ S.playing = !S.playing; updatePlay(); };
+function updatePlay(){
+  const b = $('btnPlay');
+  b.textContent = S.playing ? '❚❚' : '▶';
+  b.title = S.playing ? 'Pause – Modell anhalten' : 'Start – Modell laufen lassen';
+  b.classList.toggle('paused', !S.playing);
+}
+$('rpm').addEventListener('input', e=>{
+  S.rpm = +e.target.value;
+  $('lblSpeed').textContent = S.rpm.toLocaleString('de-DE') + '/min';
+});
+const SPEEDS = [
+  { v:1,    label:'1×' }, { v:.5, label:'½×' }, { v:.25, label:'¼×' },
+  { v:.1,   label:'⅒×' }, { v:.04, label:'⅟₂₅×' }
+];
+$('speedBtns').onclick = e=>{
+  const v = e.target.dataset.speed; if (v === undefined) return;
+  S.speed = +v;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle('on', +c.dataset.speed === S.speed));
+};
+$('viewBtns').onclick = e=>{
+  const v = e.target.dataset.view; if (!v) return;
+  S.view = v;
+  markView(v);
+  const size = Math.max((S.info?.zMax - S.info?.zMin) || 8, 6);
+  setView(v, size);
+};
+function markView(v){
+  [...$('viewBtns').children].forEach(c => c.classList.toggle('on', c.dataset.view === v));
+}
+let camTimer = null;
+controls.addEventListener('start', ()=>{ if (camTimer) clearTimeout(camTimer); });
+controls.addEventListener('end', ()=>{
+  if (camTimer) clearTimeout(camTimer);
+  camTimer = setTimeout(()=>{
+    if (S.view !== 'free'){ S.view = 'free'; markView('free'); }
+  }, 120);
+});
+function setView(v, size){
+  const t = controls.target;
+  const dist = size * 1.25 + 5;
+  const y = t.y + size * .55;
+  if (v === 'front')      camera.position.set(0, y, dist * 1.15);
+  else if (v === 'side')  camera.position.set(dist * 1.15, y, 0);
+  else if (v === 'top')   camera.position.set(.01, dist * 1.25, .01);
+  else                    camera.position.set(dist * .95, y * 1.15, dist * 1.1);
+  controls.update();
+}
+$('btnReset').onclick = ()=>{ S.angleDeg = 0; angleEl.value = 0; S.cut = false; applyClip(); S.view='iso';
+  [...$('viewBtns').children].forEach(c=>c.classList.toggle('on', c.dataset.view==='iso'));
+  const size = Math.max((S.info?.zMax - S.info?.zMin) || 8, 6); setView('iso', size); update(0); };
+/* Hülle und Dreh-Stopp liegen im Blatt „Mehr" */
+function applyClip(){
+  const planes = S.cut ? [clip] : [];
+  const cut = document.querySelector('[data-opt="cut"]');
+  if (cut){ cut.classList.toggle('on', S.cut); cut.textContent = S.cut ? 'Hülle an' : 'Hülle aus'; }
+  scene.traverse(o=>{
+    if (!o.isMesh || o.userData.isGas) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach(m=>{ if (m){ m.clippingPlanes = planes; m.needsUpdate = true; } });
+  });
+}
+
+/* ================= Blatt „Mehr" ================= */
+$('btnMore').onclick = ()=>{ openMore(); wireMore(); };
+$('sheetBody').addEventListener('click', e=>{
+  if (e.target.closest('#speedBtns'))  $('speedBtns').onclick(e);
+  if (e.target.closest('#viewBtns'))   $('viewBtns').onclick(e);
+  if (e.target.closest('#stepBtns'))   $('stepBtns').onclick(e);
+  if (e.target.closest('#optBtns'))    $('optBtns').onclick(e);
+});
+function wireMore(){
+  const rp = $('rpm');
+  if (rp && !rp._wired){
+    rp._wired = true;
+    rp.addEventListener('input', e=>{
+      S.rpm = +e.target.value;
+      $('lblSpeed').textContent = S.rpm.toLocaleString('de-DE') + '/min';
+    });
+  }
+}
+
+/* ================= Info-Blatt ================= */
+const sheet = $('sheet'), sheetBody = $('sheetBody'), backdrop = $('backdrop');
+const MORE_HTML = `
+  <h2>Einstellungen</h2>
+  <h3>Drehzahl</h3>
+  <div class="row"><input type="range" id="rpm" min="60" max="4000" step="20" value="1200" />
+    <span class="wval" id="lblSpeed">1.200/min</span></div>
+  <h3>Tempo</h3>
+  <div class="grid4" id="speedBtns">
+    <button class="opt on" data-speed="1">1×</button>
+    <button class="opt" data-speed="0.5">½×</button>
+    <button class="opt" data-speed="0.25">¼×</button>
+    <button class="opt" data-speed="0.04">⅟₂₅×</button>
+  </div>
+  <h3>Ansicht</h3>
+  <div class="grid4" id="viewBtns">
+    <button class="opt" data-view="front">Front</button>
+    <button class="opt" data-view="side">Seite</button>
+    <button class="opt" data-view="top">Oben</button>
+    <button class="opt on" data-view="free">Frei</button>
+  </div>
+  <h3>Winkel schrittweise</h3>
+  <div class="grid4" id="stepBtns">
+    <button class="opt" data-step="-90">−90°</button>
+    <button class="opt" data-step="-10">−10°</button>
+    <button class="opt" data-step="10">+10°</button>
+    <button class="opt" data-step="90">+90°</button>
+    <button class="opt" data-step="0" id="btnZero">0°</button>
+  </div>
+  <h3>Darstellung</h3>
+  <div class="grid4" id="optBtns">
+    <button class="opt on" data-opt="cut">Hülle an</button>
+    <button class="opt on" data-opt="turnPause">Drehen stoppt</button>
+  </div>
+  <p class="note">Hülle an zeigt die geschlossene Außenseite, Hülle aus lässt Zylinderwand und Kopf
+  zurücktreten, sodass Kolben, Pleuel und Kurbelwelle frei sichtbar werden.</p>`;
+
+let moreHTML = null;
+function openMore(){ openSheet(MORE_HTML); }
+function openSheet(html){
+  if (html === undefined || html === null) return;
+  sheetBody.innerHTML = html;
+  sheet.style.display = 'block';
+  sheet.style.visibility = 'visible';
+  sheet.classList.add('open');
+  backdrop.classList.add('on');
+}
+function closeSheet(){
+  sheet.classList.remove('open');
+  sheet.style.visibility = 'hidden';
+  sheet.style.display = 'none';
+  backdrop.classList.remove('on');
+}
+$('btnClose').onclick = closeSheet; backdrop.onclick = closeSheet;
+$('btnInfo').onclick = ()=> openSheet(infoHTML());
+$('btnParts').onclick = ()=> openSheet(partsHTML());
+
+function firingStr(){ return cfg.firing.join(' – '); }
+
+function infoHTML(){return `<h2>So arbeitet der Ottomotor</h2><p>Alle Geometrien und Winkel sind Lehrbeispiele, keine Herstellerdaten. Der globale Nullpunkt ist der Zünd-OT von Zylinder 1.</p><h3>Viertakt · lokale Winkel ab Ladungswechsel-OT</h3><p>0–180° Ansaugen · 180–360° Verdichten · 360–540° Arbeiten · 540–720° Ausstoßen.</p><p>Einlass: 708° bis 228° über den Nullpunkt. Auslass: 495° bis 8° über den Nullpunkt. Überschneidung: 20°. Die Nockenwelle dreht halb so schnell wie die Kurbelwelle.</p><h3>Zweitakt · ab Zünd-OT</h3><p>Der Kolben gibt die Schlitze frei: Auslass 100–260°, Überströmen 118–242°. Der gezeigte schlitzgesteuerte Typ hat keine Nockenwelle. Die Balken zeigen schematische Öffnungsgrade, keine Messwerte.</p><h3>Motormanagement</h3><p>Sensoren melden Drehzahl, Motorphase, Last und Temperatur. Das Steuergerät berechnet Einspritzung und Zündzeitpunkt. Einspritzventile und Zündspulen setzen die Befehle um. Die Lambdasonde liefert Rückmeldung für die Gemischregelung; der Klopfsensor ermöglicht eine Korrektur des Zündzeitpunkts.</p><h3>Hubraum</h3><p>Je Zylinder: π × Bohrung² × Hub / 4. Das Ergebnis mal Zylinderzahl ergibt den Gesamthubraum.</p>`;}
+function partsHTML(sel){
+  const names = Object.keys(PARTS);
+  return `<h2>Bauteile</h2>
+  <h3 id="partHead">${sel ? 'Ausgewählt: ' + sel : 'Noch kein Bauteil ausgewählt'}</h3>
+  <p class="note">Im 3D-Modell ein Bauteil antippen – der Name erscheint am Finger und hier oben.
+  Oder aus der Liste wählen:</p>
+  <div class="cylgrid">${names.map(n => `<button class="cylbtn${n === sel ? ' on' : ''}" data-part="${n}">${n}</button>`).join('')}</div>
+  <div id="partDetail"></div>`;
+}
+sheetBody.addEventListener('click', e=>{
+  const p = e.target.dataset.part;
+  if (p) showPart(p);
+});
+function showPart(n){
+  const d = PARTS[n]; if (!d) return;
+  const box = $('partDetail'); if (!box) return;
+  S.selectedPart = n;
+  const head = $('partHead'); if (head) head.textContent = 'Ausgewählt: ' + n;
+  const grid = box.previousElementSibling;
+  if (grid && grid.classList.contains('cylgrid'))
+    [...grid.children].forEach(b => b.classList.toggle('on', b.dataset.part === n));
+  box.innerHTML = `<h3>${n}</h3>` +
+    `<p><b>${d.kurz}</b></p>` +
+    (d.bauform ? `<p>${d.bauform}</p>` : '') +
+    `<p>${d.lang}</p>` +
+    (d.zahlen ? `<div class="kv"><span>Typische Werte</span><span style="font-weight:400;color:#cfdae5;text-align:right">${d.zahlen}</span></div>` : '') +
+    (d.fehler ? `<p class="note"><b>Typische Fehler:</b> ${d.fehler}</p>` : '');
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+/* ================= Antippen ================= */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const hitEl = $('hit');
+let down = null;
+
+renderer.domElement.addEventListener('pointerdown', e=>{
+  down = { x:e.clientX, y:e.clientY, t:Date.now() }; dragging = false;
+});
+renderer.domElement.addEventListener('pointermove', ()=>{ if (down) dragging = true; });
+renderer.domElement.addEventListener('pointerup', e=>{
+  if (!down) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+  const dt = Date.now() - down.t;
+  dragging = false;
+  if (moved > 10 || dt > 500){ down = null; return; }
+  down = null;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.x = ((e.clientX - r.left)/r.width)*2 - 1;
+  ndc.y = -((e.clientY - r.top)/r.height)*2 + 1;
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects(motor.root.children, true)
+    .filter(i => i.object.visible && i.object.name && !i.object.userData.isGas);
+  if (!hits.length){ hitEl.style.opacity = 0; return; }
+  const o = hits[0].object;
+  hitEl.textContent = o.name;
+  hitEl.style.left = Math.min(Math.max(e.clientX - r.left + 12, 6), r.width - 150) + 'px';
+  hitEl.style.top  = Math.max(e.clientY - r.top - 36, 6) + 'px';
+  hitEl.style.opacity = 1;
+  clearTimeout(hitEl._t);
+  hitEl._t = setTimeout(()=> hitEl.style.opacity = 0, 2600);
+
+  let cylNo = null;
+  for (let walk = o; walk; walk = walk.parent){
+    if (walk.userData && walk.userData.cyl !== undefined) cylNo = walk.userData.cyl;
+  }
+  if (cylNo){ S.focusCyl = cylNo; buildFocusButtons(); }
+
+  highlightPart(o);
+
+  if (PARTS[o.name]){
+    const open = sheet.classList.contains('open') && $('partHead');
+    if (open) showPart(o.name);
+    else { openSheet(partsHTML(o.name)); setTimeout(()=> showPart(o.name), 40); }
+  }
+});
+
+/* ================= Hervorhebung des gewählten Bauteils ================= */
+let highlightT = null;
+function highlightPart(obj){
+  clearHl();
+  if (!obj || !obj.material) return;
+  const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+  mats.forEach(m=>{
+    if (!m || m.userData._base) return;
+    m.userData._base = m.emissive ? m.emissive.clone() : null;
+    if (m.emissive) { m.emissive.set(0x39a9ff); m.emissiveIntensity = .85; }
+    m.userData._hl = true;
+  });
+  if (highlightT) clearTimeout(highlightT);
+  highlightT = setTimeout(clearHl, 3200);
+  function clearHl(){
+    scene.traverse(o=>{
+      if (!o.isMesh || !o.material) return;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      ms.forEach(m=>{
+        if (m && m.userData._hl && m.userData._base){
+          m.emissive.copy(m.userData._base);
+          m.userData._hl = false;
+        }
+      });
+    });
+  }
+  HIGHLIGHT_CLEAR = clearHl;
+}
+let HIGHLIGHT_CLEAR = null;
+
+/* ================= Größe ================= */
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+new ResizeObserver(resize).observe(stage);
+
+/* ================= Fehlerhinweis ================= */
+addEventListener('error', e=>{
+  const el = $('err');
+  el.style.display = 'block';
+  const msg = (e && e.message) ? e.message : 'unbekannter Fehler';
+  el.textContent = 'Interner Fehler: ' + msg +
+    ' — bitte diese Meldung weitergeben, dann ist die Ursache schnell gefunden.';
+});
+
+/* ================= Start ================= */
+$('lblSpeed').textContent = '1.200/min';
+updatePlay();
+$('wval').textContent = '000°';
+
+build();
+resize();
+loop(performance.now());
+</script>
+</body>
+</html>
